@@ -1,0 +1,15 @@
+# Team config for OpenRouter + Gemini cascading.
+# Copy to: ~/.hermes/config.yaml  (backup your existing one first)
+# Keys themselves live in .env (OPENROUTER_API_KEY, GOOGLE_API_KEY)
+
+model:
+  aliases:
+    # Free Gemini via Google AI Studio
+    free-gemini: gemini/gemini-2.0-flash
+
+    # Gemini through OpenRouter (OpenRouter model ID: openai/gemini-2.0-flash)
+    free-openrouter: openrouter/openai/gemini-2.0-flash
+
+# Set up the fallback chain once per session with:
+#   hermes fallback add 0 gemini/gemini-2.0-flash
+#   hermes fallback add 1 openrouter/openai/gemini-2.0-flash
