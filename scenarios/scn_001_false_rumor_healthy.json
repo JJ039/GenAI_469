@@ -1,0 +1,25 @@
+{
+  "id": "scn_001",
+  "name": "false_rumor_healthy",
+  "trigger": "Social media post claims BankCo is insolvent; shares dip but are not halted.",
+  "financials": {
+    "capital": 55000000,
+    "liquidity": 6000000,
+    "borrowing_limit": 12000000,
+    "daily_withdrawals": 1500000,
+    "forecast_next_7d": 2000000
+  },
+  "regulations": {
+    "max_draw_facility": 50000000,
+    "report_to_regulator": true,
+    "max_drawal_rate_pct": 20
+  },
+  "answer_key": {
+    "news_label": "false",
+    "ideal_actions": ["hold_position"],
+    "acceptable_actions": ["hold_position", "monitor"],
+    "forbidden_actions": ["draw_central_bank_facility"],
+    "target_amount_range": [0, 1000000]
+  }
+}
+

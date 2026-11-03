@@ -1,0 +1,24 @@
+{
+  "id": "scn_004",
+  "name": "true_rumor_healthy",
+  "trigger": "Deposits are stable but a credible internal alert flags mild withdrawal pressure that is within normal activity.",
+  "financials": {
+    "capital": 50000000,
+    "liquidity": 7000000,
+    "borrowing_limit": 14000000,
+    "daily_withdrawals": 2500000,
+    "forecast_next_7d": 3000000
+  },
+  "regulations": {
+    "max_draw_facility": 45000000,
+    "report_to_regulator": true,
+    "max_drawal_rate_pct": 15
+  },
+  "answer_key": {
+    "news_label": "credible",
+    "ideal_actions": ["hold_position"],
+    "acceptable_actions": ["hold_position", "monitor"],
+    "forbidden_actions": ["draw_central_bank_facility"],
+    "target_amount_range": [0, 1000000]
+  }
+}
