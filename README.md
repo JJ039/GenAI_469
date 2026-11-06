@@ -1,87 +1,94 @@
-# Hermes OpenRouter + Gemini Cascading
+# Bank Crisis Multi-Agent System + Dashboard
 
-A reproducible Hermes Agent config so your team can run **OpenRouter + Google AI Studio / Gemini** with **free models**, and cascade between them (use cheap models for simple prompts, stronger models for complex ones).
+A reproducible multi-agent LLM evaluation system for bank-run crisis scenarios, comparing a single-LLM baseline against a multi-agent coordinator with a React + Flask dashboard for visualizing results.
 
-No codebase needed — this is pure config + a routing skill.
+## Project Structure
 
----
+```
+bank-crisis-project/
+├── hermes-openrouter-gemini-cascade/   # Agent evaluation engine
+│   ├── agents/                          # main_agent.py, scorer.py, output_schema.py
+│   ├── scenarios/scenarios/             # 10 JSON test scenarios
+│   ├── scripts/                         # run_baseline.py, test_scenarios.py
+│   ├── skills/route-model/              # Model routing skill
+│   ├── config.yaml                      # Hermes model aliases
+│   └── .env.example                     # API key template
+├── agent-dashboard/                     # React + Flask visualization dashboard
+│   ├── server.py                        # Flask API (port 5000)
+│   ├── src/                             # React frontend (port 3000)
+│   └── requirements.txt                 # Python dependencies
+└── README.md
+```
 
 ## Quick Start
 
+### 1. Install Hermes Agent
 ```bash
-# 1) Clone
-git clone <repo> && cd hermes-openrouter-gemini-cascade
+# Windows: download from https://hermes-agent.nousresearch.com
+# Verify: hermes --version
+```
 
-# 2) Create your local secrets file (never commit .env)
+### 2. Configure API Keys
+```bash
+cd hermes-openrouter-gemini-cascade
 cp .env.example .env
-# → edit .env and paste your OPENROUTER_API_KEY and GOOGLE_API_KEY
-
-# 3) Install the config
-cp config.yaml.example ~/.hermes/config.yaml
-# → back up any existing ~/.hermes/config.yaml first
-
-# 4) Create the model aliases (or they're already in config.yaml)
-hermes config set model.aliases.free-gemini gemini/gemini-2.0-flash
-hermes config set model.aliases.free-openrouter openrouter/openai/gemini-2.0-flash
-
-# 5) Verify
-hermes model list | grep free
+# Edit .env and add OPENROUTER_API_KEY and GOOGLE_API_KEY
 ```
 
-That's it. You can now use `/model free-gemini` or `/model free-openrouter` in the desktop app or CLI.
-
----
-
-## How the two "cascades" work
-
-### 1. Resilience cascade (automatic, on error)
-Hermes walks a fallback chain when the active model fails. Set it once:
-
+### 3. Install Hermes Config
 ```bash
-hermes fallback add 0 gemini/gemini-2.0-flash
-hermes fallback add 1 openrouter/openai/gemini-2.0-flash
-hermes fallback list
+cp config.yaml ~/.hermes/config.yaml
+hermes config set model.aliases.free-gemini gemini/gemini-3.8-flash
+hermes config set model.aliases.free-openrouter nvidia/nemotron-3-ultra-550b-a55b:free
 ```
 
-### 2. Logic cascade (pick a model by complexity)
-The `skills/route-model` skill (or a small wrapper script) decides which model to use per prompt:
+### 4. Start the Dashboard
 
-- Short prompt (`< 300 chars`) → `free-gemini`
-- Long/complex prompt → `free-openrouter`
+**Terminal 1 — Flask API:**
+```bash
+cd agent-dashboard
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python server.py
+```
 
----
+**Terminal 2 — React Frontend:**
+```bash
+cd agent-dashboard
+npm install
+npm start
+```
 
-## Repo contents
+Open http://localhost:3000
 
-| File | Purpose |
-|---|---|
-| `.env.example` | Template for your API keys — copy to `.env`, commit nothing. |
-| `config.yaml.example` | Aliases + fallback setup — copy to `~/.hermes/config.yaml`. |
-| `skills/route-model/SKILL.md` | The routing logic: pick model by prompt length. |
-| `README.md` | This file. |
+### 5. Run Evaluations (CLI)
+```bash
+cd hermes-openrouter-gemini-cascade
+python scripts/test_scenarios.py
+# or
+python scripts/run_baseline.py --runs 5 --output results/base
+```
 
----
+## Tech Stack
 
-## What "free" means here
+- **Agent Framework:** Hermes Agent (OpenRouter + Google AI Studio Gemini)
+- **Models:** NVIDIA Nemotron 3 Ultra 550B (free via OpenRouter), Gemini 2.0 Flash (free tier)
+- **Backend:** Flask (Python 3.11)
+- **Frontend:** React 19 (Create React App)
+- **Evaluation:** Per-scenario answer keys with scoring (ideal=3, acceptable=2, forbidden=-2)
 
-- **Google AI Studio / Gemini**: genuine free tier (`gemini-2.0-flash`, `gemini-flash-lite`) with daily quotas.
-- **OpenRouter**: generally pay-per-token through its providers. A few models have free tiers — check the [OpenRouter catalog](https://openrouter.ai/models) for a free one to alias instead of `openai/gemini-2.0-flash`.
+## Metrics
 
----
+- Decision quality (per-scenario score)
+- Confidence-weighted score
+- Safety violations (forbidden actions)
+- Injection resistance
+- Reliability (mean ± std across 5 runs)
+- Efficiency (tokens / calls / time)
 
-## Troubleshooting
+## License
 
-| Problem | Fix |
-|---|---|
-| No `free-gemini` alias | Run `hermes config set model.aliases.free-gemini gemini/gemini-2.0-flash`, then `/reset`. |
-| `hermes: command not found` | Install Hermes: `curl -fsSL https://hermes-agent.nousresearch.com/install.sh \| bash`. |
-| Gateway won't start | `hermes doctor`, then check `~/.hermes/.env` has both keys. |
-| Cascade isn't picking a model | Confirm the alias resolves: `hermes model get <alias>`. |
-
----
-
-## For the team
-
-- Share the repo URL, not the `.env`.
-- Each teammate runs steps 2–4 (their keys differ).
-- Drop `skills/route-model` (or a wrapper script) into your own repo if you want per-team routing rules.
+MIT
+EOF
+echo "README CREATED"
