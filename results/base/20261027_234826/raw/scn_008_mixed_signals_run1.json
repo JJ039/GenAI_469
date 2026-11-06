@@ -1,0 +1,10 @@
+{
+  "scenario": "scn_008_mixed_signals.json",
+  "raw_output": "",
+  "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\main_agent.py\", line 8, in <module>\n    from output_schema import validate_decision\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\output_schema.py\", line 4, in <module>\n    from pydantic import BaseModel, Field, ValidationError\nModuleNotFoundError: No module named 'pydantic'\n",
+  "returncode": 1,
+  "score": 2,
+  "max_score": 6,
+  "normalized_score": 0.3333333333333333,
+  "status": "FAIL"
+}

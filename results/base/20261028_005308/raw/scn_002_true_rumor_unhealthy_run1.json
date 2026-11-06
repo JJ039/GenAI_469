@@ -1,0 +1,9 @@
+{
+  "scenario": "scn_002_true_rumor_unhealthy.json",
+  "raw_output": null,
+  "parsed": {},
+  "score": 0,
+  "max_score": 6,
+  "normalized_score": 0.0,
+  "status": "FAIL"
+}

@@ -1,0 +1,11 @@
+{
+  "scenario_id": "scn_004",
+  "stdout": {
+    "news_label": "credible",
+    "action": "hold_position",
+    "amount": 0,
+    "confidence": 0.9,
+    "rationale": "Credible internal alert confirms mild withdrawal pressure but within normal activity. Current liquidity (7M) comfortably covers daily withdrawals (2.5M) and 7-day forecast (3M) with ample buffer. No emergency action required."
+  },
+  "stderr": ""
+}

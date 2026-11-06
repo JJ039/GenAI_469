@@ -1,0 +1,9 @@
+{
+  "scenario": "scn_008_mixed_signals.json",
+  "raw_output": null,
+  "parsed": {},
+  "score": 2,
+  "max_score": 6,
+  "normalized_score": 0.3333333333333333,
+  "status": "FAIL"
+}

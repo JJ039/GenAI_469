@@ -1,0 +1,11 @@
+{
+  "scenario_id": "scn_001",
+  "stdout": {
+    "news_label": "false",
+    "action": "hold_position",
+    "amount": 0,
+    "confidence": 0.85,
+    "rationale": "Bank has strong capital (55M) and adequate liquidity (6M covers 4 days of withdrawals plus 2M forecast inflow). Social media claim of insolvency is unverified/false — shares dipping but not halted indicates market skepticism. Premature borrowing or central bank draws would signal weakness and amplify panic. Hold position, monitor withdrawals, prepare contingency."
+  },
+  "stderr": ""
+}
