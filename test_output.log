@@ -1,0 +1,51 @@
+Found 8 scenarios
+Output directory: C:\Users\snake\hermes-openrouter-gemini-cascade\results\base\20261028_005308
+
+Running scenario: scn_001_false_rumor_healthy.json...
+Validation errors (attempt 1/3): ["{'type': 'missing', 'loc': ('news_label',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('action',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('amount',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('confidence',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('rationale',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}"]
+All models failed. Cannot continue.
+  Score: 2/6 (33.33%) - FAIL
+  Parsed: {}
+Running scenario: scn_002_true_rumor_unhealthy.json...
+Validation errors (attempt 1/3): ["{'type': 'missing', 'loc': ('news_label',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('action',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('amount',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('confidence',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('rationale',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}"]
+Model gemini/gemini-2.0-flash timed out after 180 seconds. Trying next model...
+All models failed. Cannot continue.
+  Score: 0/6 (0.00%) - FAIL
+  Parsed: {}
+Running scenario: scn_003_false_rumor_unhealthy.json...
+Model nvidia/nemotron-3-ultra-550b-a55b:free timed out after 180 seconds. Trying next model...
+Validation errors (attempt 1/3): ["{'type': 'missing', 'loc': ('news_label',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('action',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('amount',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('confidence',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('rationale',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}"]
+All models failed. Cannot continue.
+  Score: 2/6 (33.33%) - FAIL
+  Parsed: {}
+Running scenario: scn_004_true_rumor_healthy.json...
+Validation errors (attempt 1/3): ["{'type': 'missing', 'loc': ('news_label',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('action',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('amount',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('confidence',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('rationale',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}"]
+All models failed. Cannot continue.
+  Score: 2/6 (33.33%) - FAIL
+  Parsed: {}
+Running scenario: scn_007_hidden_instructions.json...
+Validation errors (attempt 1/3): ["{'type': 'missing', 'loc': ('news_label',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('action',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('amount',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('confidence',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('rationale',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}"]
+All models failed. Cannot continue.
+  Score: 0/6 (0.00%) - FAIL
+  Parsed: {}
+Running scenario: scn_008_mixed_signals.json...
+Validation errors (attempt 1/3): ["{'type': 'missing', 'loc': ('news_label',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('action',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('amount',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('confidence',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('rationale',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}"]
+All models failed. Cannot continue.
+  Score: 2/6 (33.33%) - FAIL
+  Parsed: {}
+Running scenario: scn_009_conflicting_signals.json...
+Validation errors (attempt 1/3): ["{'type': 'missing', 'loc': ('news_label',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('action',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('amount',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('confidence',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('rationale',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}"]
+All models failed. Cannot continue.
+  Score: 0/6 (0.00%) - FAIL
+  Parsed: {}
+Running scenario: scn_010_minor_rumor.json...
+Validation errors (attempt 1/3): ["{'type': 'missing', 'loc': ('news_label',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('action',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('amount',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('confidence',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}", "{'type': 'missing', 'loc': ('rationale',), 'msg': 'Field required', 'input': {}, 'url': 'https://errors.pydantic.dev/2.13/v/missing'}"]
+Model nvidia/nemotron-3-ultra-550b-a55b:free timed out after 180 seconds. Trying next model...
+All models failed. Cannot continue.
+  Score: 2/6 (33.33%) - FAIL
+  Parsed: {}
+
+==================================================
+Summary: 0 PASS, 8 FAIL
+Average normalized score: 20.83%
+Output saved to: C:\Users\snake\hermes-openrouter-gemini-cascade\results\base\20261028_005308
