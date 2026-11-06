@@ -23,7 +23,7 @@ if _env_path and os.path.exists(_env_path):
             if _line and not _line.startswith("#") and "=" in _line:
                 _k, _, _v = _line.partition("=")
                 _v = _v.strip().strip('"').strip("'")
-                if _k in ("OPENROUTER_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY", "GOOGLE_API_KEY"):
+                if _k in ("OPENROUTER_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY"):
                     os.environ[_k.strip()] = _v
 
 from output_schema import validate_decision
@@ -74,7 +74,7 @@ def build_prompt(scenario):
     return prompt
 
 
-def run_agent(prompt, models=["nvidia/nemotron-3-ultra-550b-a55b:free", "gemini/gemini-2.0-flash"]):
+def run_agent(prompt, models=["nvidia/nemotron-3-ultra-550b-a55b:free", "groq/llama-3.3-70b-versatile", "gemini/gemini-2.0-flash"]):
     # Use full path to hermes to avoid PATH resolution issues
     hermes_path = os.path.expanduser("~/AppData/Local/hermes/hermes-agent/.hermes/bin/hermes.exe")
     if not os.path.exists(hermes_path):
