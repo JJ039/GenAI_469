@@ -6,14 +6,14 @@ import sys
 import threading
 import time
 
-AGENTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "agents")
+AGENTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend", "agents")
 sys.path.insert(0, AGENTS_DIR)
 from scorer import score_scenario, compute_max_score
 
 app = Flask(__name__)
 CORS(app)
 
-SCENARIOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scenarios", "scenarios")
+SCENARIOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend", "scenarios", "scenarios")
 task_lock = threading.Lock()
 task_result = {}
 task_error = None

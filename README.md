@@ -6,14 +6,14 @@ A reproducible multi-agent LLM evaluation system for bank-run crisis scenarios, 
 
 ```
 bank-crisis-project/
-├── hermes-openrouter-gemini-cascade/   # Agent evaluation engine
+├── backend/   # Agent evaluation engine
 │   ├── agents/                          # main_agent.py, scorer.py, output_schema.py
 │   ├── scenarios/scenarios/             # 10 JSON test scenarios
 │   ├── scripts/                         # run_baseline.py, test_scenarios.py
 │   ├── skills/route-model/              # Model routing skill
 │   ├── config.yaml                      # Hermes model aliases
 │   └── .env.example                     # API key template
-├── agent-dashboard/                     # React + Flask visualization dashboard
+├── frontend/                     # React + Flask visualization dashboard
 │   ├── server.py                        # Flask API (port 5000)
 │   ├── src/                             # React frontend (port 3000)
 │   └── requirements.txt                 # Python dependencies
@@ -30,7 +30,7 @@ bank-crisis-project/
 
 ### 2. Configure API Keys
 ```bash
-cd hermes-openrouter-gemini-cascade
+cd backend
 cp .env.example .env
 # Edit .env and add OPENROUTER_API_KEY and GOOGLE_API_KEY
 ```
@@ -46,7 +46,7 @@ hermes config set model.aliases.free-openrouter nvidia/nemotron-3-ultra-550b-a55
 
 **Terminal 1 — Flask API:**
 ```bash
-cd agent-dashboard
+cd frontend
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
@@ -55,7 +55,7 @@ python server.py
 
 **Terminal 2 — React Frontend:**
 ```bash
-cd agent-dashboard
+cd frontend
 npm install
 npm start
 ```
@@ -64,7 +64,7 @@ Open http://localhost:3000
 
 ### 5. Run Evaluations (CLI)
 ```bash
-cd hermes-openrouter-gemini-cascade
+cd backend
 python scripts/test_scenarios.py
 # or
 python scripts/run_baseline.py --runs 5 --output results/base
