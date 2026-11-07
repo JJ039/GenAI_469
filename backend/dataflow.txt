@@ -1,0 +1,15 @@
+Depositors  ──withdrawals──▶  Cash / Liquidity
+        ▲                       │
+        │                       ▼
+   (outflows)            Daily withdrawals  ──▶  Forecast next 7 days
+        ▲                       │
+   (new deposits)          Capital + Liquidity  ──▶  Liquidity buffer after t days
+        │
+   (insured deposits stay)   Borrowing limit  ──▶  Max you can borrow
+
+if liquidity > withdrawals => false, no crisis
+if liquidity < withdrawals, borrowing_limit covers the difference => credible news, draws on facility, crisis 
+if liquidity < withdrawals, borrowing_limit does not cover the difference =>credible news, no facility to draw on so borrow from other banks, crisis
+if try to borrow > borrowing_limit, stop action 
+
+scenario.json is our input, 
