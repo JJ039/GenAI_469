@@ -12,11 +12,21 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "backend" / "agents"))
 from main_agent import run_agent, build_prompt
 from financial_analyst import run_financial_analyst
+from news_verification import run_news_verification
+from risk_manager import run_risk_manager
+from compliance_officer import run_compliance_officer
+from treasury_operations import run_treasury_operations
 from output_schema import HermesBankDecision
 from scorer import score_scenario, compute_max_score
 
 # Add future specialist agents here. Each accepts (scenario, llm_runner).
-SECONDARY_AGENTS = {"financial_analyst": run_financial_analyst}
+SECONDARY_AGENTS = {
+    "financial_analyst": run_financial_analyst,
+    "news_verification": run_news_verification,
+    "risk_manager": run_risk_manager,
+    "compliance_officer": run_compliance_officer,
+    "treasury_operations": run_treasury_operations,
+}
 
 app = Flask(__name__)
 CORS(app)
@@ -90,6 +100,8 @@ def run_agent_endpoint():
         scenario = json.load(f)
     # Never send the scoring answer key to the models.
     task_input = {key: scenario.get(key, {}) for key in ("trigger", "financials", "regulations")}
+    task_input["id"] = scenario.get("id")
+    task_input["news_sources"] = scenario.get("news_sources", [])
     with task_lock:
         if task_status == "running":
             return jsonify({"error": "An LLM run is already in progress."}), 409
@@ -128,7 +140,8 @@ def run_agent_endpoint():
             baseline = {"status": "error", "error": str(exc)}
             publish_stage(2, "Baseline failed. Running the independent secondary agent line.")
         with task_lock:
-            task_result = {"baseline": baseline, "secondary": secondary}
+            # Do not expose a dictionary that the worker will mutate while polling.
+            task_result = {"baseline": baseline, "secondary": {"status": "running", "agents": {}}}
 
         # Specialists see the original scenario only, never the baseline decision.
         for name, agent in SECONDARY_AGENTS.items():
@@ -143,12 +156,12 @@ def run_agent_endpoint():
             try:
                 output = agent(task_input, llm_runner=specialist_runner)
                 secondary["agents"][name] = {
-                    "status": "completed", "output": output, "model": agent_call["model"]
+                    "status": "completed", "output": output, "model": agent_call.get("model")
                 }
                 publish_stage(2, "Running the secondary agent line.", {
                     "turn": len(task_trace) + 1, "stage": "secondary", "input": task_input,
-                    "prompt": agent_call["prompt"], "output": output,
-                    "source": name, "model": agent_call["model"], "line": "secondary"
+                    "prompt": agent_call.get("prompt"), "output": output,
+                    "source": name, "model": agent_call.get("model"), "line": "secondary"
                 })
             except Exception as exc:
                 secondary["agents"][name] = {"status": "error", "error": str(exc)}

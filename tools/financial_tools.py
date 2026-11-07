@@ -53,7 +53,7 @@ def calculate_borrowing_capacity(scenario):
     """Conservative simulated limit; actual approvals are Compliance's job."""
     financials = get_bank_financials(scenario)
     regulatory_limit = float(scenario.get('regulations', {}).get('max_draw_facility', float('inf')))
-    if regulatory_limit < 0:
+    if regulatory_limit != regulatory_limit or regulatory_limit < 0 or ('max_draw_facility' in scenario.get('regulations', {}) and not isfinite(regulatory_limit)):
         raise ValueError('max_draw_facility must be non-negative')
     return min(financials['borrowing_limit'], regulatory_limit)
 

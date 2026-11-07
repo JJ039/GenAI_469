@@ -28,9 +28,14 @@ The dashboard runs two independent lines on the same scenario:
 
 - **Baseline:** `main_agent.py` makes one standalone LLM decision. Its output is
   scored locally against the scenario answer key.
-- **Secondary:** `financial_analyst.py` calculates financial metrics and requests
-  its own LLM recommendation. Future specialists can be added to
+- **Secondary:** Financial Analyst, News Verification, Risk Manager and Compliance
+  Officer produce their own reports using deterministic tools and LLM interpretation.
+  Treasury Operations waits for explicit simulation approval. Specialists are registered in
   `SECONDARY_AGENTS` in `frontend/server.py`; each accepts `(scenario, llm_runner)`.
+
+See [specialist agent documentation](backend/agents/README.md) for interfaces,
+evidence fixtures, approval examples and simulation limitations. Crisis Coordinator
+is intentionally not implemented.
 
 Neither line receives the other line's outputs. They currently execute in sequence
 within the background job, but are independent evaluations. Failures in one line
@@ -64,7 +69,7 @@ Run the API integration checks without calling external models:
 
 ```powershell
 cd frontend
-.\venv\Scripts\python.exe -B -m unittest test_server -v
+.\venv\Scripts\python.exe -B -m unittest discover -p "test_*.py" -v
 ```
 
 ### 1. Install Hermes Agent

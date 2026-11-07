@@ -10,6 +10,9 @@ class AgentApiTests(unittest.TestCase):
     def setUp(self):
         server.task_status = "pending"
         self.client = server.app.test_client()
+        registry = patch.object(server, 'SECONDARY_AGENTS', {'financial_analyst': server.run_financial_analyst})
+        registry.start()
+        self.addCleanup(registry.stop)
 
     def run_synchronously(self):
         class InlineThread:
@@ -87,6 +90,31 @@ class AgentApiTests(unittest.TestCase):
     def test_concurrent_run_is_rejected(self):
         server.task_status = 'running'
         self.assertEqual(self.client.post('/api/run', json={'scenario': 'scn_001_false_rumor_healthy.json'}).status_code, 409)
+
+    def test_all_specialists_and_treasury_waiting(self):
+        decision = {"news_label": "unverified", "action": "hold", "amount": 0,
+                    "confidence": 0.5, "rationale": "Adequate liquidity"}
+        recommendation = {"recommendation": "hold", "amount": 0, "confidence": 0.5, "rationale": "Adequate liquidity"}
+        interpretation = {"summary": "Evidence reviewed", "confidence": 0.5}
+        registry = {'financial_analyst': server.run_financial_analyst,
+                    'news_verification': server.run_news_verification,
+                    'risk_manager': server.run_risk_manager,
+                    'compliance_officer': server.run_compliance_officer,
+                    'treasury_operations': server.run_treasury_operations}
+        responses = [(json.dumps(v), 'test-model') for v in
+                     (decision, recommendation, interpretation, interpretation, interpretation)]
+        with patch.object(server, 'SECONDARY_AGENTS', registry), self.run_synchronously(), patch.object(server, 'run_agent', side_effect=responses) as runner:
+            result = self.start_run()
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(runner.call_count, 5)
+        agents = result['result']['secondary']['agents']
+        self.assertEqual(len(agents), 5)
+        self.assertTrue(all(a['status'] == 'completed' for a in agents.values()))
+        self.assertEqual(agents['treasury_operations']['output']['status'], 'awaiting_authorization')
+        self.assertIsNone(agents['treasury_operations']['model'])
+        self.assertEqual(agents['news_verification']['output']['report']['news_label'], 'unverified')
+        for call in runner.call_args_list:
+            self.assertNotIn('answer_key', call.args[0])
 
 
 if __name__ == '__main__':
