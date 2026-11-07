@@ -8,6 +8,7 @@ import sys
 # Load API keys from .env file into environment BEFORE running the agent
 _env_path = None
 for _candidate in [
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"),
     os.path.expanduser("~/.hermes/.env"),
     os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"),
     "C:/Users/snake/AppData/Local/hermes/.env",
@@ -76,7 +77,7 @@ def build_prompt(scenario):
 
 def run_agent(prompt, models=["nvidia/nemotron-3-ultra-550b-a55b:free", "gemini/gemini-2.0-flash"]):
     # Use full path to hermes to avoid PATH resolution issues
-    hermes_path = os.path.expanduser("~/AppData/Local/hermes/hermes-agent/.hermes/bin/hermes.exe")
+    hermes_path = os.environ.get("HERMES_EXECUTABLE") or os.path.expanduser("~/AppData/Local/hermes/hermes-agent/.hermes/bin/hermes.exe")
     if not os.path.exists(hermes_path):
         # Fallback: try to find it on PATH
         hermes_path = shutil.which("hermes")
@@ -95,7 +96,7 @@ def run_agent(prompt, models=["nvidia/nemotron-3-ultra-550b-a55b:free", "gemini/
         except Exception as e:
             print(f"Model {model} failed with error: {e}. Trying next model...")
             continue
-    return None
+    raise RuntimeError("All configured LLM models failed. Check Hermes credentials, model availability, and connectivity.")
 
 
 def validate_output(output, prompt):

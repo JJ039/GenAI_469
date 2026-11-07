@@ -22,6 +22,51 @@ bank-crisis-project/
 
 ## Quick Start
 
+### Dashboard agent flow
+
+The dashboard runs two independent lines on the same scenario:
+
+- **Baseline:** `main_agent.py` makes one standalone LLM decision. Its output is
+  scored locally against the scenario answer key.
+- **Secondary:** `financial_analyst.py` calculates financial metrics and requests
+  its own LLM recommendation. Future specialists can be added to
+  `SECONDARY_AGENTS` in `frontend/server.py`; each accepts `(scenario, llm_runner)`.
+
+Neither line receives the other line's outputs. They currently execute in sequence
+within the background job, but are independent evaluations. Failures in one line
+preserve results from the other. The dashboard displays them side by side with
+actual prompts, outputs, and model names. The secondary line has no combined
+final decision or comparison score yet. No banking action is executed, and the
+answer key is never sent to a model.
+
+From `frontend`, install dependencies and restart the server:
+
+```powershell
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe server.py
+```
+
+Hermes must be installed and configured for the model identifiers in
+`backend/agents/main_agent.py`. The runner checks its usual Windows install
+location and PATH. For a different installation, set the executable before
+starting the server:
+
+```powershell
+$env:HERMES_EXECUTABLE = "C:\path\to\hermes.exe"
+```
+
+Provider keys can be supplied through environment variables or `backend/.env`
+(`OPENROUTER_API_KEY` and `GOOGLE_API_KEY`). Do not commit credentials.
+The runner tries its second configured model if the first call fails. Each model
+attempt has a 180-second timeout, so a stage may take several minutes.
+
+Run the API integration checks without calling external models:
+
+```powershell
+cd frontend
+.\venv\Scripts\python.exe -B -m unittest test_server -v
+```
+
 ### 1. Install Hermes Agent
 ```bash
 # Windows: download from https://hermes-agent.nousresearch.com
