@@ -22,7 +22,7 @@ test('shows a scenario load failure', async () => {
   expect(await screen.findByText(/Could not load scenarios/i)).toBeInTheDocument();
 });
 
-test('displays the baseline and coordinated final decision after polling', async () => {
+test('renders formatted decision cards from run results', async () => {
   const decision = {news_label: 'false', action: 'hold', amount: 0, confidence: 0.5, rationale: 'Verified evidence supports waiting.'};
   global.fetch
     .mockResolvedValueOnce({ok: true, json: async () => ({scenarios: [{id: 'test.json', name: 'Test crisis'}]})})
@@ -64,4 +64,22 @@ test('keeps configuration usable after a failed start', async () => {
   fireEvent.click(screen.getByRole('button', {name: /Run comparison/i}));
   expect(await screen.findByRole('alert')).toHaveTextContent('Provider unavailable');
   expect(screen.getByRole('button', {name: /Run comparison/i})).toBeEnabled();
+});
+
+
+test('shows specialist reports as pending integration rather than a final decision', async () => {
+  global.fetch
+    .mockResolvedValueOnce({ok:true,json:async()=>({scenarios:[{id:'test.json',name:'Test crisis'}]})})
+    .mockResolvedValueOnce({ok:true,json:async()=>({task_id:'1'})})
+    .mockResolvedValue({ok:true,json:async()=>({status:'completed',stage:3,trace:[],result:{
+      baseline:{status:'error',error:'Unavailable'},
+      secondary:{status:'completed',decision_status:'awaiting_integration',note:'Combined decision awaits teammate integration.',agents:{}}
+    }})});
+  render(<App />);
+  await screen.findByRole('option',{name:'Test crisis'});
+  fireEvent.change(screen.getByRole('combobox'),{target:{value:'test.json'}});
+  fireEvent.click(screen.getByRole('button',{name:/Run comparison/i}));
+  expect(await screen.findByText('Specialist reports collected')).toBeInTheDocument();
+  expect(screen.getByText('Combined decision awaits teammate integration.')).toBeInTheDocument();
+  expect(screen.queryByText(/Crisis coordinator/i)).not.toBeInTheDocument();
 });

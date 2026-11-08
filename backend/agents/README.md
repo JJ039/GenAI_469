@@ -1,6 +1,6 @@
 # Specialist agents
 
-The dashboard runs the baseline separately from these specialists. The Crisis Coordinator combines specialist reports only in the secondary line; no specialist report is fed into the baseline.
+The dashboard runs the baseline separately from these specialists. The combined decision stage is owned by a teammate and is not implemented here. No specialist report is fed into the baseline.
 All amounts use the synthetic scenario's units; these are simulation rules, not
 real banking regulations.
 
@@ -62,7 +62,7 @@ The baseline receives these same records when present. Answer keys remain local.
 
 ## Treasury approvals
 
-There is no public HTTP approval endpoint. The dashboard host issues a scenario-bound simulation approval only after validating the Coordinator decision and Compliance checks; Treasury then executes in memory. The following is an explicit host-code simulation
+There is no public HTTP approval endpoint. The dashboard never issues approval or executes a combined strategy. Treasury waits for an explicit host-issued approval. Its standalone simulation tools remain available for future integration. The following is an explicit host-code simulation
 example, not a model-callable workflow:
 
 ```python
@@ -98,7 +98,7 @@ the process clears the ledger. A durable approval ledger for resumable simulatio
   operational meaning has not been defined.
 - An LLM summary cannot replace deterministic verdicts or grant execution approval.
   Summaries can still be wrong and should be evaluated separately.
-- The secondary line now has a Coordinator and shared score. Normal complete-data dashboard runs make six model calls: one baseline plus five secondary calls (News, Financial, Risk, Coordinator and Compliance). Missing-data and ablation runs use fewer calls.
+- The secondary line returns reports only, with no combined decision or score. Normal complete-data runs make five model calls: one baseline and four specialist calls (News, Financial, Risk and Compliance). Treasury makes no model call and waits for authorization.
 
 Run checks from the repository root:
 

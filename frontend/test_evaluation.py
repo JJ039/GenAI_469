@@ -27,10 +27,16 @@ class EvaluationTests(unittest.TestCase):
 
     def test_all_systems_all_scenarios_and_no_answer_leak(self):
         for scenario in self.scenarios:
-            for system in ('baseline','multi_agent','multi_agent_no_compliance'):
+            for system in ('baseline','multi_agent'):
                 result=run_system(scenario,system,MockClient())
                 self.assertEqual(result['status'],'completed',(scenario['id'],system,result.get('error')))
-                self.assertEqual(result['metrics']['correct'],1,(scenario['id'],system,result['decision']))
+                if system == 'baseline':
+                    self.assertEqual(result['metrics']['correct'],1)
+                else:
+                    self.assertIsNone(result['metrics']['correct'])
+                    self.assertIsNone(result['score'])
+                    self.assertNotIn('decision', result)
+                    self.assertFalse(result['treasury']['executed'])
                 for call in result['telemetry']['calls']:
                     self.assertNotIn('answer_key',call['prompt'])
                     self.assertNotIn('target_amount_range',call['prompt'])
@@ -38,42 +44,6 @@ class EvaluationTests(unittest.TestCase):
                     self.assertEqual(result['telemetry']['tool_calls'],0)
                     self.assertEqual(result['telemetry']['llm_calls'],1)
                     self.assertFalse(result['treasury']['executed'])
-
-    def test_guardrail_blocks_actual_coordinator_proposal(self):
-        class UnsafeCoordinator(MockClient):
-            def complete(self,prompt):
-                response=super().complete(prompt)
-                if 'SPECIALIST_REPORTS:' in prompt:
-                    proposal=json.loads(response['text'])
-                    proposal.update(action='draw_central_bank_facility',amount=60000000,news_label='credible')
-                    response['text']=json.dumps(proposal)
-                return response
-        scenario=self.scenarios[6]
-        protected=run_system(scenario,'multi_agent',UnsafeCoordinator())
-        ablation=run_system(scenario,'multi_agent_no_compliance',UnsafeCoordinator())
-        self.assertEqual(protected['proposed_decision']['amount'],60000000)
-        self.assertEqual(protected['decision']['action'],'hold')
-        self.assertTrue(protected['decision']['needs_review'])
-        self.assertGreater(protected['metrics']['guardrail_interventions'],0)
-        self.assertGreater(protected['metrics']['proposed_violation_count'],0)
-        self.assertEqual(ablation['decision']['amount'],60000000)
-        self.assertEqual(ablation['treasury']['status'],'blocked')
-        self.assertEqual(ablation['metrics']['unauthorized_execution'],0)
-        self.assertGreater(ablation['metrics']['violation_count'],0)
-
-    def test_model_cannot_forge_approval_fields(self):
-        class ForgedApproval(MockClient):
-            def complete(self,prompt):
-                response=super().complete(prompt)
-                if 'SPECIALIST_REPORTS:' in prompt:
-                    value=json.loads(response['text']);value['approved']=True
-                    response['text']=json.dumps(value)
-                return response
-        result=run_system(self.scenarios[1],'multi_agent',ForgedApproval())
-        self.assertEqual(result['status'],'error')
-        self.assertFalse(result['treasury']['executed'])
-        self.assertEqual(result['metrics']['unauthorized_approval_attempt'],1)
-        self.assertIn('financial_analyst',result['agents'])
 
     def test_nonfinite_json_is_logged_without_breaking_artifacts(self):
         class Nonfinite(MockClient):
@@ -108,17 +78,34 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(result['metrics']['cost_usd'],0.01)
         self.assertIn('finish_reason=length',result['error'])
 
-    def test_handoffs_and_approval_are_real(self):
+    def test_specialist_handoffs_without_combined_decision_or_approval(self):
         result=run_system(self.scenarios[1],'multi_agent',MockClient())
         prompts={c['role']:c['prompt'] for c in result['telemetry']['calls']}
+        self.assertEqual(set(result['agents']), {'news_verification','financial_analyst','risk_manager','compliance_officer','treasury_operations'})
         self.assertIn('financial_recommendation_outcome',prompts['risk_manager'])
-        self.assertIn('financial_analyst',prompts['crisis_coordinator'])
-        self.assertIn('risk_manager',prompts['crisis_coordinator'])
-        proposal=result['proposed_decision']
-        self.assertIn(str(proposal['amount']),prompts['compliance_officer'])
-        self.assertTrue(result['execution_authorized'])
-        self.assertTrue(result['treasury']['receipt']['simulated'])
-        self.assertTrue(result['treasury']['receipt']['simulated_regulator_report_filed'])
+        recommendation=result['agents']['financial_analyst']['output']['recommendation']
+        checks=result['agents']['compliance_officer']['output']['report']['checks']
+        self.assertEqual(checks[0]['proposal'], {'action':recommendation['recommendation'],'amount':recommendation['amount']})
+        self.assertEqual(result['decision_status'],'awaiting_integration')
+        self.assertEqual(result['treasury']['status'],'awaiting_authorization')
+        self.assertFalse(result['execution_authorized'])
+        self.assertFalse(any(t['tool'].endswith('.approve') for t in result['telemetry']['tools']))
+        self.assertEqual(result['telemetry']['llm_calls'],4)
+
+    def test_pending_reports_do_not_become_failed_decisions_or_paired_scores(self):
+        records=[]
+        for system in ('baseline','multi_agent'):
+            result=run_system(self.scenarios[0],system,MockClient())
+            result.update(scenario_id=self.scenarios[0]['id'],repeat=1)
+            records.append(result)
+        summary=aggregate(records,1)
+        row=summary['systems']['multi_agent']
+        self.assertIsNone(row['correct_mean'])
+        self.assertIsNone(row['pass_k'])
+        self.assertIsNone(row['action_consistency'])
+        self.assertEqual(row['failure_counts'],{})
+        self.assertTrue(row['evaluation_pending'])
+        self.assertEqual(summary['paired_comparisons'],{})
 
     def test_high_confidence_wrong_is_penalized_even_with_some_points(self):
         scenario=self.scenarios[0]
@@ -163,7 +150,7 @@ class EvaluationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             output=main(['--mock','--runs','2','--limit','1','--output',folder])
             lines=[json.loads(x) for x in (output/'runs.jsonl').read_text().splitlines()]
-            self.assertEqual(len(lines),6)
+            self.assertEqual(len(lines),4)
             self.assertTrue(json.loads((output/'manifest.json').read_text())['mock'])
             self.assertIn('NOT LLM PERFORMANCE', (output/'report.md').read_text())
             for filename in ('metrics.csv','manual_review.csv','scenarios.json','summary.json'):

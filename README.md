@@ -1,7 +1,6 @@
 # Bank Crisis: baseline versus multi-agent evaluation
 
-A synthetic crisis experiment with a standalone LLM baseline and a coordinated
-specialist system. Financial actions are simulated in memory; no banking APIs
+A synthetic crisis experiment with a standalone LLM baseline and a specialist-report line ready for teammate integration. Financial actions are simulated in memory; no banking APIs
 are connected. Scoring uses versioned answer keys that are never sent to models.
 
 ## Start the dashboard (Windows PowerShell)
@@ -22,9 +21,7 @@ npm install
 npm start
 ```
 
-Open http://localhost:3000. Choose a scenario and click **Run LLM Agents**. Each
-line has its own final decision and score, plus specialist traces, guardrail
-interventions and simulated receipts. Dashboard results are saved under
+Open http://localhost:3000. Choose a scenario and click **Run LLM Agents**. The baseline has a final decision and score. The secondary line shows specialist reports and explicitly waits for teammate integration before producing a combined decision or executing anything. Dashboard results are saved under
 `results/dashboard/`, including failures.
 
 ## Model and credentials
@@ -64,8 +61,7 @@ From the repository root, check the plumbing without external model calls:
 Mock outputs are watermarked **NOT LLM PERFORMANCE RESULTS**. They only check
 that the integration and report generation work.
 
-Run the real study when ready (13 scenarios x 5 repeats x 3 systems = 195 runs;
-the specialist systems make several model calls per run, up to 650 inference requests before missing-data reductions; check your provider quota):
+Run baseline evaluation and collect specialist reports (13 scenarios x 5 repeats x 2 lines = 130 runs; the report line is not yet a complete decision system):
 
 ```powershell
 .\frontend\venv\Scripts\python.exe backend/scripts/run_evaluation.py --runs 5
@@ -84,7 +80,7 @@ saved seed, and failures remain in reliability denominators.
 
 Every timestamped output directory contains:
 
-- `manifest.json`: model, temperature, rubric version, suite hash, ablation scope.
+- `manifest.json`: model, temperature, rubric version, suite hash, integration status.
 - `scenarios.json`: exact inputs and answer keys used for this run.
 - `runs.jsonl`: raw model outputs, prompts, proposals, final decisions, approval
   outcomes, tool calls and per-agent diagnostics; flushed after each run.
@@ -99,14 +95,12 @@ Every timestamped output directory contains:
 
 Baseline: raw scenario evidence -> one LLM decision -> shared evaluator.
 
-Multi-agent: News Verification + Financial Analyst -> Risk Manager -> Crisis
-Coordinator proposal -> Compliance Officer checks the actual proposal -> host
-simulation approval -> Treasury Operations -> the same evaluator.
-
-The `multi_agent_no_compliance` ablation skips the Compliance Officer and the
-host compliance/news correction gate. Treasury still enforces hard simulation
-limits. This tests that specific gate, not the removal of every safety mechanism.
-Original proposals are retained so blocked unsafe proposals are still measured.
+Specialist line: News Verification + Financial Analyst -> Risk Manager ->
+Compliance reviews the Financial Analyst recommendation -> Treasury waits for
+explicit approval. The combined decision stage is owned by a teammate and is
+not implemented in this checkout. No specialist output is promoted to a final
+system decision, no secondary score is assigned, and no approval is issued.
+Decision-level ablation is deferred until integration.
 
 The 13 version-2 scenarios have controlled evidence fixtures, canonical action
 names, explicit missing-data expectations, and injection cases. News retrieval

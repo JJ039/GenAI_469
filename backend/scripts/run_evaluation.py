@@ -1,4 +1,4 @@
-"""Run the same scenario suite against baseline and coordinated systems."""
+"""Evaluate baseline decisions and collect specialist reports on the same scenarios."""
 import argparse
 import csv
 from datetime import datetime, timezone

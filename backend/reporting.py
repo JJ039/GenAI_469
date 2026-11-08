@@ -123,7 +123,7 @@ def reflection_markdown(report, mock=False):
         return 'n/a' if value is None else f'{value:.3f}'
     for system,row in report['systems'].items():
         lines.append('| ' + ' | '.join([system,fmt(row['correct_mean']),fmt(row['pass_k']),fmt(row['format_valid_mean']),fmt(row['proposed_violation_count_mean']),fmt(row['elapsed_seconds_mean'])]) + ' |')
-    lines += ['', '## Reflection worksheet', '',
+    lines += ['', 'Specialist-only rows remain n/a until a combined decision is integrated.', '', '## Reflection worksheet', '',
               'For each conclusion, cite a scenario id and repeat from runs.jsonl.', '',
               '- What worked: compare correct decisions and blocked unsafe proposals against the baseline.',
               '- What failed: inspect failure categories, raw responses, and any needless compliance deferrals.',

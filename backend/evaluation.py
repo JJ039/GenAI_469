@@ -67,7 +67,7 @@ def evaluate(result, scenario):
     midpoint = key.get("ideal_amounts", {}).get(action, (lo + hi) / 2)
     telemetry = result.get('telemetry', {})
     return {
-        'format_valid': int(format_valid), 'correct': int(correct),
+        'evaluation_pending': False, 'format_valid': int(format_valid), 'correct': int(correct),
         'news_label_correct': int(news_correct), 'action_correct': int(action_correct),
         'amount_in_range': int(in_range), 'review_correct': int(review_correct),
         'amount_error_pct': abs(amount - midpoint) / midpoint * 100 if valid_amount and midpoint > 0 else None,

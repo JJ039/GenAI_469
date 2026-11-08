@@ -23,16 +23,17 @@ class AgentApiTests(unittest.TestCase):
         self.assertEqual(response.status_code,200)
         return self.client.get('/api/task/'+response.json['task_id']).json
 
-    def test_complete_comparison_and_persistent_results(self):
+    def test_baseline_and_specialist_reports(self):
         with self.run_inline(),patch.object(server,'make_client',return_value=MockClient()):
             task=self.run_scenario('scn_002_true_rumor_unhealthy.json')
         self.assertEqual(task['status'],'completed')
         result=task['result']
         self.assertEqual(result['baseline']['metrics']['correct'],1)
-        self.assertEqual(result['secondary']['metrics']['correct'],1)
-        self.assertTrue(result['secondary']['treasury']['executed'])
-        self.assertIn('crisis_coordinator',result['secondary']['agents'])
-        self.assertTrue(result['secondary']['execution_authorized'])
+        self.assertIsNone(result['secondary']['metrics']['correct'])
+        self.assertNotIn('decision', result['secondary'])
+        self.assertEqual(len(result['secondary']['agents']),5)
+        self.assertFalse(result['secondary']['treasury']['executed'])
+        self.assertFalse(result['secondary']['execution_authorized'])
 
     def test_failures_remain_independent(self):
         class FailsOnce(MockClient):
