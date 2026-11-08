@@ -20,7 +20,7 @@ from backend.reporting import aggregate, reflection_markdown
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runs', type=int, default=5)
-    parser.add_argument('--systems', nargs='+', choices=['baseline','multi_agent','multi_agent_no_compliance'], default=['baseline','multi_agent','multi_agent_no_compliance'])
+    parser.add_argument('--systems', nargs='+', choices=['baseline','multi_agent'], default=['baseline','multi_agent'])
     parser.add_argument('--model', default=None)
     parser.add_argument('--temperature', type=float, default=0.1)
     parser.add_argument('--transport', choices=['openrouter','hermes'], default='openrouter')
@@ -55,7 +55,7 @@ def main(argv=None):
                 'implementation_sha256':implementation_hash,'seed_scope':'job ordering and bootstrap only; model sampling is not seeded',
                 'seed':args.seed,'scenario_sha256':hashlib.sha256(snapshot_text.encode()).hexdigest(),
                 'rubric_version':2,'requested_max_tokens':args.max_tokens,'requested_reasoning_effort':args.reasoning_effort,'retry_policy':'No retries or model fallback; failures are measured.',
-                'ablation_scope':'Compliance Officer and host compliance/news gate disabled; Treasury hard limits remain.',
+                'integration_status':'Secondary reports only; combined decisions and ablation await teammate integration.',
                 'warning':'MOCK RESULTS ARE NOT LLM PERFORMANCE EVIDENCE' if args.mock else None}
     (output/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     jobs = [(s,repeat,system) for _,s in scenarios for repeat in range(1,args.runs+1) for system in args.systems]

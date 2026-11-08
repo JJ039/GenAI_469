@@ -77,7 +77,7 @@ def start_run():
             with task_lock:
                 task_result = {'baseline':baseline}
                 task_stage = 2
-                task_message = 'Running specialists, coordinator, compliance and simulated treasury.'
+                task_message = 'Collecting specialist reports. Treasury awaits explicit approval.'
                 task_stage_started_at = time.monotonic()
             secondary = run_system(scenario,'multi_agent',client,update)
             result = {'scenario':scenario_file,'scenario_input':scenario_inputs(scenario),

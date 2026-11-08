@@ -18,7 +18,7 @@ def _scenario_key(scenario):
 
 
 class TreasurySimulation:
-    def __init__(self, authorized_approvers=("human_reviewer", "crisis_coordinator")):
+    def __init__(self, authorized_approvers=("human_reviewer",)):
         self._authorized_approvers = frozenset(authorized_approvers)
         self._approvals = {}
         self._receipts = {}
