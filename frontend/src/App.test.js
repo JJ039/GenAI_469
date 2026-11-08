@@ -8,8 +8,8 @@ afterEach(() => jest.restoreAllMocks());
 
 test('loads scenarios and enables a run only after selection', async () => {
   render(<App />);
-  expect(screen.getByRole('heading', {name: /Bank Agent Dashboard/i})).toBeInTheDocument();
-  const button = screen.getByRole('button', {name: /Run LLM Agents/i});
+  expect(screen.getByRole('heading', {name: /Compare crisis decisions/i})).toBeInTheDocument();
+  const button = screen.getByRole('button', {name: /Run comparison/i});
   expect(button).toBeDisabled();
   await screen.findByRole('option', {name: 'Test crisis'});
   fireEvent.change(screen.getByRole('combobox'), {target: {value: 'test.json'}});
@@ -34,8 +34,34 @@ test('displays the baseline and coordinated final decision after polling', async
   render(<App />);
   await screen.findByRole('option', {name: 'Test crisis'});
   fireEvent.change(screen.getByRole('combobox'), {target: {value: 'test.json'}});
-  fireEvent.click(screen.getByRole('button', {name: /Run LLM Agents/i}));
-  expect(await screen.findByRole('heading', {name: 'Final decision'})).toBeInTheDocument();
-  expect(screen.getByRole('heading', {name: 'Multi-agent system'})).toBeInTheDocument();
-  await waitFor(() => expect(screen.getByRole('button', {name: /Run LLM Agents/i})).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', {name: /Run comparison/i}));
+  await waitFor(() => expect(screen.getAllByText('Hold position')).toHaveLength(2));
+  expect(screen.getByRole('article', {name: 'Multi-agent system'})).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole('button', {name: /Run comparison/i})).toBeEnabled());
+});
+
+
+test('offers separate readable views without exposing raw JSON on the overview', async () => {
+  render(<App />);
+  await screen.findByRole('option', {name: 'Test crisis'});
+  fireEvent.click(screen.getByRole('button', {name: 'Metrics & safety'}));
+  expect(screen.getByRole('heading', {name: 'Run comparison'})).toBeInTheDocument();
+  expect(screen.getByRole('table')).toBeInTheDocument();
+  expect(screen.getAllByText('Not reported')).toHaveLength(2);
+  fireEvent.click(screen.getByRole('button', {name: 'Scenario inputs'}));
+  expect(screen.getByText('Scenario evidence, in one place')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', {name: 'Agent activity'}));
+  expect(screen.getByText('A clear view of every handoff')).toBeInTheDocument();
+});
+
+test('keeps configuration usable after a failed start', async () => {
+  global.fetch
+    .mockResolvedValueOnce({ok: true, json: async () => ({scenarios: [{id:'test.json', name:'Test crisis'}]})})
+    .mockResolvedValueOnce({ok: false, json: async () => ({error: 'Provider unavailable'})});
+  render(<App />);
+  await screen.findByRole('option', {name: 'Test crisis'});
+  fireEvent.change(screen.getByRole('combobox'), {target: {value: 'test.json'}});
+  fireEvent.click(screen.getByRole('button', {name: /Run comparison/i}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Provider unavailable');
+  expect(screen.getByRole('button', {name: /Run comparison/i})).toBeEnabled();
 });
