@@ -1,19 +1,36 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
-import os
+import math
+from pathlib import Path
 import sys
 import threading
 import time
 
-AGENTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend", "agents")
-sys.path.insert(0, AGENTS_DIR)
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "backend" / "agents"))
+from main_agent import run_agent, build_prompt
+from financial_analyst import run_financial_analyst
+from news_verification import run_news_verification
+from risk_manager import run_risk_manager
+from compliance_officer import run_compliance_officer
+from treasury_operations import run_treasury_operations
+from output_schema import HermesBankDecision
 from scorer import score_scenario, compute_max_score
+
+# Add future specialist agents here. Each accepts (scenario, llm_runner).
+SECONDARY_AGENTS = {
+    "financial_analyst": run_financial_analyst,
+    "news_verification": run_news_verification,
+    "risk_manager": run_risk_manager,
+    "compliance_officer": run_compliance_officer,
+    "treasury_operations": run_treasury_operations,
+}
 
 app = Flask(__name__)
 CORS(app)
-
-SCENARIOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend", "scenarios", "scenarios")
+SCENARIOS_DIR = ROOT / "backend" / "scenarios" / "scenarios"
 task_lock = threading.Lock()
 task_result = {}
 task_error = None
@@ -25,15 +42,7 @@ task_message = "Waiting to start."
 task_stage_started_at = time.monotonic()
 
 
-def as_number(value, default=0.0):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
 def publish_stage(stage, message, trace_entry=None):
-    """Publish stage status and trace immediately for the dashboard poller."""
     global task_stage, task_trace, task_message, task_stage_started_at
     with task_lock:
         task_stage = stage
@@ -43,87 +52,59 @@ def publish_stage(stage, message, trace_entry=None):
             task_trace = [*task_trace, trace_entry]
 
 
-def build_fallback_flow(scenario):
-    """Run a transparent, local-only demonstration without invoking any model/API."""
-    financials = scenario.get("financials") if isinstance(scenario.get("financials"), dict) else {}
-    regulations = scenario.get("regulations") if isinstance(scenario.get("regulations"), dict) else {}
-    trigger = str(scenario.get("trigger") or "No trigger provided")
+def call_llm(prompt):
+    response = run_agent(prompt)
+    if not response:
+        raise RuntimeError("The LLM runner returned no response.")
+    raw, model = response
+    text = raw.strip()
+    if text.startswith("```"):
+        text = "\n".join(text.splitlines()[1:-1])
+    try:
+        parsed = json.loads(text)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("The LLM returned invalid JSON. Please retry the scenario.") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("The LLM response must be a JSON object.")
+    return parsed, model
 
-    perceived = {
-        "reported_event": trigger,
-        "financials": dict(financials),
-        "regulations": dict(regulations),
-        "verification": "unverified (local fallback does not check external sources)",
-        "source_note": "Extracted directly from the selected scenario"
-    }
 
-    liquidity = as_number(financials.get("liquidity"))
-    daily_withdrawals = as_number(financials.get("daily_withdrawals"))
-    forecast = as_number(financials.get("forecast_next_7d"))
-    borrowing_limit = as_number(financials.get("borrowing_limit"))
-    coverage_days = liquidity / daily_withdrawals if daily_withdrawals > 0 else 0.0
-    if coverage_days < 1:
-        risk_level = "high"
-    elif coverage_days < 3 or liquidity < forecast:
-        risk_level = "medium"
-    else:
-        risk_level = "low"
-
-    # This fallback applies a simple demo rule: unverified rumor plus adequate
-    # liquidity means hold; a high liquidity risk uses interbank borrowing,
-    # capped by the scenario's borrowing limit.
-    if risk_level == "high" and borrowing_limit > 0:
-        amount = min(max(0.0, daily_withdrawals * 2 - liquidity), borrowing_limit)
-        action = "borrow_interbank" if amount > 0 else "hold_position"
-    else:
-        amount = 0.0
-        action = "hold_position"
-
-    reasoned = {
-        "news_label": "unverified",
-        "risk_level": risk_level,
-        "liquidity_coverage_days": round(coverage_days, 2),
-        "candidate_action": action,
-        "candidate_amount": round(amount, 2),
-        "confidence": 0.55,
-        "rationale": "Local fallback rule; no external verification"
-    }
-    final_action = {
-        "news_label": reasoned["news_label"],
-        "action": reasoned["candidate_action"],
-        "amount": reasoned["candidate_amount"],
-        "confidence": reasoned["confidence"],
-        "rationale": reasoned["rationale"]
-    }
-    return perceived, reasoned, final_action
+def validate_action(data):
+    decision = HermesBankDecision(**data).model_dump()
+    if decision["news_label"] not in ("unverified", "false", "credible"):
+        raise ValueError("The LLM returned an invalid news label.")
+    if decision["action"] not in ("hold", "borrow_interbank", "draw_central_bank_facility"):
+        raise ValueError("The LLM returned an invalid action.")
+    if not math.isfinite(decision["amount"]) or not math.isfinite(decision["confidence"]):
+        raise ValueError("The LLM returned non-finite numbers.")
+    if decision["action"] == "hold" and decision["amount"] != 0:
+        raise ValueError("A hold decision must have zero amount.")
+    return decision
 
 
 @app.route("/api/scenarios", methods=["GET"])
 def list_scenarios():
-    import glob
-    files = sorted(glob.glob(os.path.join(SCENARIOS_DIR, "*.json")))
-    return jsonify({"scenarios": [
-        {"id": os.path.basename(f), "name": os.path.basename(f).replace(".json", "")}
-        for f in files
-    ]})
+    files = sorted(p for p in SCENARIOS_DIR.glob("scn_*") if p.is_file())
+    return jsonify({"scenarios": [{"id": p.name, "name": p.stem} for p in files]})
 
 
 @app.route("/api/run", methods=["POST"])
 def run_agent_endpoint():
     global task_result, task_error, task_status, task_stage, task_trace, task_id, task_message, task_stage_started_at
     data = request.get_json(silent=True) or {}
-    scenario_file = data.get("scenario")
-    if not scenario_file or os.path.basename(scenario_file) != scenario_file or not scenario_file.endswith(".json"):
+    scenario_file = data.get("scenario") if isinstance(data, dict) else None
+    allowed = {p.name for p in SCENARIOS_DIR.glob("scn_*") if p.is_file()}
+    if not isinstance(scenario_file, str) or scenario_file not in allowed:
         return jsonify({"error": "Choose a valid scenario file."}), 400
-    scenario_path = os.path.join(SCENARIOS_DIR, scenario_file)
-    if not os.path.isfile(scenario_path):
-        return jsonify({"error": "Scenario not found."}), 404
-    with open(scenario_path, encoding="utf-8") as f:
+    with open(SCENARIOS_DIR / scenario_file, encoding="utf-8") as f:
         scenario = json.load(f)
-
+    # Never send the scoring answer key to the models.
+    task_input = {key: scenario.get(key, {}) for key in ("trigger", "financials", "regulations")}
+    task_input["id"] = scenario.get("id")
+    task_input["news_sources"] = scenario.get("news_sources", [])
     with task_lock:
         if task_status == "running":
-            return jsonify({"error": "A fallback run is already in progress."}), 409
+            return jsonify({"error": "An LLM run is already in progress."}), 409
         task_id += 1
         run_id = str(task_id)
         task_result = {}
@@ -131,132 +112,96 @@ def run_agent_endpoint():
         task_stage = 1
         task_trace = []
         task_status = "running"
-        task_message = "Local fallback mode: no model or API call. Reading scenario fields for Perceive."
+        task_message = "Main agent is assessing the scenario through Hermes."
         task_stage_started_at = time.monotonic()
 
-    def run_fallback_async():
+    def run_llm_async():
         global task_result, task_error, task_status, task_message
+        baseline = {"status": "pending"}
+        secondary = {"status": "running", "agents": {}}
         try:
-            # Stage 1: perceive the scenario data locally.
-            task_input = {
-                "trigger": scenario.get("trigger"),
-                "financials": scenario.get("financials", {}),
-                "regulations": scenario.get("regulations", {})
-            }
-            # Build the actual prompt that would be sent to the model (like main_agent.py build_prompt)
-            perceive_prompt = f"""You are Hermes, a decision-making AI for a bank.
-The following scenario just happened:
-
-{scenario.get('trigger', 'No trigger provided')}
-
-Here are the bank's current financials:
-- Capital: {scenario.get('financials', {}).get('capital', 'N/A')}
-- Liquidity: {scenario.get('financials', {}).get('liquidity', 'N/A')}
-- Borrowing Limit: {scenario.get('financials', {}).get('borrowing_limit', 'N/A')}
-- Daily Withdrawals: {scenario.get('financials', {}).get('daily_withdrawals', 'N/A')}
-- Forecast Next 7 Days: {scenario.get('financials', {}).get('forecast_next_7d', 'N/A')}
-
-Here are the relevant regulations:
-- Max Draw Facility: {scenario.get('regulations', {}).get('max_draw_facility', 'N/A')}
-- Report to Regulator: {scenario.get('regulations', {}).get('report_to_regulator', 'N/A')}
-- Max Drawal Rate: {scenario.get('regulations', {}).get('max_drawal_rate_pct', 'N/A')}%
-
-Please make a decision in JSON format. Your ENTIRE response must be ONLY the JSON object with these exact fields:
-- news_label: "unverified" | "false" | "credible"
-- action: "draw_central_bank_facility" | "borrow_interbank" | "hold"
-- amount: a number
-- confidence: a number between 0.0 and 1.0
-- rationale: a short sentence (1-3 words max) explaining your reason
-
-Return ONLY the JSON object, nothing else."""
-            perceived, reasoned, final_action = build_fallback_flow(scenario)
-            publish_stage(2, "Perceive complete. Passing extracted scenario facts to Reason.", {
-                "turn": 1, "stage": "perceive", "input": task_input,
-                "prompt": perceive_prompt,
-                "output": perceived, "source": "fallback_simulation"
-            })
-            time.sleep(1.0)
-
-            # Stage 2: reason from the output of Perceive.
-            reason_prompt = f"Previous: {perceived}\nBased on the above, is this correct? Output JSON: action, amount, confidence, rationale"
-            publish_stage(3, "Reason complete. Passing the risk estimate and candidate action to Act.", {
-                "turn": 2, "stage": "reason", "input": perceived,
-                "prompt": reason_prompt,
-                "output": reasoned, "source": "fallback_simulation"
-            })
-            time.sleep(1.0)
-
-            # Stage 3: package the proposed action.
-            act_prompt = f"Previous decision: {reasoned}\nFinalize the action. Output JSON: news_label, action, amount, confidence, rationale"
-            publish_stage(4, "Act complete. Passing the proposed action to Evaluate.", {
-                "turn": 3, "stage": "act", "input": reasoned,
-                "prompt": act_prompt,
-                "output": final_action, "source": "fallback_simulation"
-            })
-            time.sleep(1.0)
-
-            # Stage 4: score the action against the scenario answer key.
-            score_input = {key: final_action[key] for key in ("news_label", "action", "amount", "confidence")}
-            score = score_scenario(score_input, scenario)
+            # The baseline is one standalone main-agent call, with no specialist input.
+            prompt = build_prompt(task_input)
+            decision, model = call_llm(prompt)
+            decision = validate_action(decision)
+            score = score_scenario(decision, scenario)
             max_score = compute_max_score(scenario)
-            evaluation = {
-                "score": score,
-                "max_score": max_score,
-                "normalized": score / max_score if max_score else 0.0,
-                "rating_note": "Scorer compared the fallback action with the scenario answer key"
+            baseline = {
+                "status": "completed", "decision": decision, "model": model,
+                "score": score, "max_score": max_score,
+                "normalized": score / max_score if max_score else 0.0
             }
-            publish_stage(5, "Evaluate complete. All four fallback stages finished.", {
-                "turn": 4, "stage": "observe", "input": score_input,
-                "output": evaluation, "source": "scorer"
+            publish_stage(2, "Running the independent secondary agent line.", {
+                "turn": 1, "stage": "baseline", "input": task_input,
+                "prompt": prompt, "output": decision, "source": "main_agent", "model": model,
+                "line": "baseline"
             })
+        except Exception as exc:
+            baseline = {"status": "error", "error": str(exc)}
+            publish_stage(2, "Baseline failed. Running the independent secondary agent line.")
+        with task_lock:
+            # Do not expose a dictionary that the worker will mutate while polling.
+            task_result = {"baseline": baseline, "secondary": {"status": "running", "agents": {}}}
 
-            with task_lock:
-                if run_id != str(task_id):
-                    return
-                task_result = {
-                    "scenario": scenario_file,
-                    "scenario_input": {
-                        "trigger": scenario.get("trigger"),
-                        "financials": scenario.get("financials", {}),
-                        "regulations": scenario.get("regulations", {})
-                    },
-                    "score": score,
-                    "max_score": max_score,
-                    "normalized": evaluation["normalized"],
-                    "final_action": final_action,
-                    "trace": list(task_trace),
-                    "mode": "fallback_only"
+        # Specialists see the original scenario only, never the baseline decision.
+        for name, agent in SECONDARY_AGENTS.items():
+            agent_call = {}
+
+            def specialist_runner(prompt):
+                agent_call["prompt"] = prompt
+                output, used_model = call_llm(prompt)
+                agent_call["model"] = used_model
+                return output
+
+            try:
+                output = agent(task_input, llm_runner=specialist_runner)
+                secondary["agents"][name] = {
+                    "status": "completed", "output": output, "model": agent_call.get("model")
                 }
-                task_status = "completed"
-                task_message = "Fallback run complete. No model/API call was made."
-        except Exception as e:
-            with task_lock:
-                if run_id == str(task_id):
-                    task_error = f"Fallback run error: {str(e)}"
-                    task_message = task_error
-                    task_status = "error"
+                publish_stage(2, "Running the secondary agent line.", {
+                    "turn": len(task_trace) + 1, "stage": "secondary", "input": task_input,
+                    "prompt": agent_call.get("prompt"), "output": output,
+                    "source": name, "model": agent_call.get("model"), "line": "secondary"
+                })
+            except Exception as exc:
+                secondary["agents"][name] = {"status": "error", "error": str(exc)}
 
-    threading.Thread(target=run_fallback_async, daemon=True).start()
-    return jsonify({"task_id": run_id, "status": "running", "stage": 1, "mode": "fallback_only", "message": task_message})
+        secondary["status"] = (
+            "completed" if all(a["status"] == "completed" for a in secondary["agents"].values())
+            else "error"
+        )
+        secondary["note"] = "Specialist recommendations only. A combined secondary decision is not implemented yet."
+        evaluation = {"baseline": {key: baseline[key] for key in ("status", "score", "max_score", "normalized") if key in baseline},
+                      "secondary": "Not scored: no combined decision yet."}
+        publish_stage(4, "Both lines finished.", {
+            "turn": len(task_trace) + 1, "stage": "observe", "output": evaluation, "source": "scorer"
+        })
+        with task_lock:
+            task_result = {
+                "scenario": scenario_file, "scenario_input": task_input,
+                "baseline": baseline, "secondary": secondary,
+                "trace": list(task_trace), "mode": "baseline_and_secondary"
+            }
+            both_failed = baseline["status"] == "error" and secondary["status"] == "error"
+            task_status = "error" if both_failed else "completed"
+            task_error = ("Both lines failed. Baseline: " + baseline.get("error", "") +
+                          "; Secondary: " + "; ".join(a.get("error", "") for a in secondary["agents"].values())) if both_failed else None
+            task_message = "Both lines finished. Check each line for its result or error."
+
+    threading.Thread(target=run_llm_async, daemon=True).start()
+    return jsonify({"task_id": run_id, "status": "running", "stage": 1, "mode": "baseline_and_secondary", "message": "LLM agents started."})
 
 
-@app.route("/api/task/<task_id>", methods=["GET"])
-def get_task(task_id):
+@app.route("/api/task/<run_id>", methods=["GET"])
+def get_task(run_id):
     with task_lock:
-        if task_id != str(globals()["task_id"]):
+        if run_id != str(task_id):
             return jsonify({"error": "Not found"}), 404
         snapshot = {
-            "status": task_status,
-            "stage": task_stage,
-            "trace": list(task_trace),
-            "message": task_message,
-            "elapsed_seconds": max(0, int(time.monotonic() - task_stage_started_at)),
-            "result": dict(task_result),
-            "error": task_error,
-            "mode": "fallback_only"
+            "status": task_status, "stage": task_stage, "trace": list(task_trace),
+            "message": task_message, "elapsed_seconds": max(0, int(time.monotonic() - task_stage_started_at)),
+            "result": dict(task_result), "error": task_error, "mode": "baseline_and_secondary"
         }
-    if snapshot["status"] == "error":
-        return jsonify(snapshot), 500
     return jsonify(snapshot)
 
 
