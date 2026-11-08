@@ -108,6 +108,8 @@ def evaluate_agents(result, scenario):
         actual = metrics.get(name)
         checks[name + '_correct'] = (actual is None and expected is None) or (
             isinstance(actual,(int,float)) and expected is not None and isclose(actual,expected,rel_tol=1e-9,abs_tol=1e-9))
+    checks.update(financial.get('analysis_metrics', {}))
+    checks['recommendation_correct'] = False if financial.get('analysis_metrics', {}).get('recommendation_blocked') else None
     recommendation = financial.get('recommendation')
     if recommendation:
         action = recommendation['recommendation']

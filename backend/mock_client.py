@@ -13,7 +13,24 @@ class MockClient:
     transport = 'mock'
 
     def complete(self, prompt):
-        if 'Return JSON only: {"summary"' in prompt:
+        if 'FINANCIAL_REACT_STATE:' in prompt:
+            state = _object_after(prompt, 'FINANCIAL_REACT_STATE:')
+            observations = [h['observation'] for h in state['history'] if h.get('observation', {}).get('ok')]
+            financials = next((o for o in observations if o.get('tool') == 'get_bank_financials'), None)
+            report_observation = next((o for o in observations if o.get('tool') == 'build_financial_report'), None)
+            if financials is None:
+                output = {'type':'tool_call','tool':'get_bank_financials','arguments':{}}
+            elif report_observation is None:
+                output = {'type':'tool_call','tool':'build_financial_report','arguments':{}}
+            else:
+                report = report_observation['result']
+                gap = report['funding_gap']
+                action = 'hold' if gap == 0 else ('borrow_interbank' if gap <= report['funding_capacity_by_action']['borrow_interbank'] else 'draw_central_bank_facility')
+                output = {'type':'final','recommendation':{'recommendation':action,
+                    'amount':report['suggested_funding_by_action'][action], 'confidence':0.5,
+                    'rationale':f'Funding gap is {gap}. Mock recommendation, not an LLM result.'},
+                    'claims':[{'metric':'funding_gap','value':gap,'unit':'amount','observation_id':report_observation['id']}]}
+        elif 'Return JSON only: {"summary"' in prompt:
             output = {'summary': 'Mock interpretation for plumbing checks only.', 'confidence': 0.5}
         elif 'FINANCIAL_REPORT:' in prompt:
             report = _object_after(prompt, 'FINANCIAL_REPORT:')

@@ -98,10 +98,12 @@ the process clears the ledger. A durable approval ledger for resumable simulatio
   operational meaning has not been defined.
 - An LLM summary cannot replace deterministic verdicts or grant execution approval.
   Summaries can still be wrong and should be evaluated separately.
-- The secondary line returns reports only, with no combined decision or score. Normal complete-data runs make five model calls: one baseline and four specialist calls (News, Financial, Risk and Compliance). Treasury makes no model call and waits for authorization.
+- The secondary line returns reports only, with no combined decision or score. Financial Analyst now uses up to six model turns for dynamic tool selection and validation; complete-run call counts therefore vary. News, Risk and Compliance each still use one call, plus the standalone baseline call. Treasury makes no model call and waits for authorization.
 
 Run checks from the repository root:
 
 ```powershell
 .\frontend\venv\Scripts\python.exe -B -m unittest discover -s frontend -p "test_*.py" -v
 ```
+
+See [Financial Analyst ReAct and numeric grounding](../../docs/FINANCIAL_ANALYST.md) for its revised final-response protocol, budgets and diagnostic fields.

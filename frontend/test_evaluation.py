@@ -1,6 +1,7 @@
 """End-to-end evaluation contract and adversarial regression checks."""
 from copy import deepcopy
 import json
+import csv
 from pathlib import Path
 import sys
 import tempfile
@@ -90,7 +91,7 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(result['treasury']['status'],'awaiting_authorization')
         self.assertFalse(result['execution_authorized'])
         self.assertFalse(any(t['tool'].endswith('.approve') for t in result['telemetry']['tools']))
-        self.assertEqual(result['telemetry']['llm_calls'],4)
+        self.assertEqual(result['telemetry']['llm_calls'],6)
 
     def test_pending_reports_do_not_become_failed_decisions_or_paired_scores(self):
         records=[]
@@ -152,6 +153,10 @@ class EvaluationTests(unittest.TestCase):
             lines=[json.loads(x) for x in (output/'runs.jsonl').read_text().splitlines()]
             self.assertEqual(len(lines),4)
             self.assertTrue(json.loads((output/'manifest.json').read_text())['mock'])
+            with (output/'metrics.csv').open(newline='', encoding='utf-8') as stream:
+                rows=list(csv.DictReader(stream))
+            self.assertIn('financial_react_steps',rows[0])
+            self.assertTrue(all(r['financial_react_steps']=='3' for r in rows if r['system']=='multi_agent'))
             self.assertIn('NOT LLM PERFORMANCE', (output/'report.md').read_text())
             for filename in ('metrics.csv','manual_review.csv','scenarios.json','summary.json'):
                 self.assertTrue((output/filename).is_file())

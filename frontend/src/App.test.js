@@ -83,3 +83,28 @@ test('shows specialist reports as pending integration rather than a final decisi
   expect(screen.getByText('Combined decision awaits teammate integration.')).toBeInTheDocument();
   expect(screen.queryByText(/Crisis coordinator/i)).not.toBeInTheDocument();
 });
+
+
+test('makes financial grounding and tool observations inspectable', async () => {
+  const output = {status:'needs_review',metrics:{funding_gap:120,forecast_7d_outflow:140,cash_runway_days:1},
+    analysis_metrics:{react_steps:2,valid_tool_calls:1,requested_tool_calls:1,grounded_claim_rate:0},
+    hallucination_check:{passed:false,flags:[{kind:'value_mismatch',metric:'funding_gap'}]},
+    financial_claims:[],react_trace:[{step:1,action:{type:'tool_call',tool:'build_financial_report'}}]};
+  global.fetch
+    .mockResolvedValueOnce({ok:true,json:async()=>({scenarios:[{id:'test.json',name:'Test crisis'}]})})
+    .mockResolvedValueOnce({ok:true,json:async()=>({task_id:'1'})})
+    .mockResolvedValue({ok:true,json:async()=>({status:'completed',stage:3,
+      trace:[{source:'financial_analyst',stage:'secondary',output}],result:{
+        secondary:{status:'completed',decision_status:'awaiting_integration',agents:{financial_analyst:{output}}}
+      }})});
+  render(<App />);
+  await screen.findByRole('option',{name:'Test crisis'});
+  fireEvent.change(screen.getByRole('combobox'),{target:{value:'test.json'}});
+  fireEvent.click(screen.getByRole('button',{name:/Run comparison/i}));
+  await screen.findByText('Specialist reports collected');
+  fireEvent.click(screen.getByRole('button',{name:'Agent activity'}));
+  expect(screen.getByText('Financial verification')).toBeInTheDocument();
+  expect(screen.getByText('Review needed')).toBeInTheDocument();
+  expect(screen.getByText('Tool actions and observations')).toBeInTheDocument();
+  expect(screen.getByText('value mismatch')).toBeInTheDocument();
+});

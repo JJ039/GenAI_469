@@ -106,6 +106,13 @@ function Activity({ trace, selectedSource, onSelect }) {
       {output?.error && <div className="inline-error" role="alert">{output.error}</div>}
       <div className="report-facts">{reportFacts(source, output).map(([label, value]) => <Metric key={label} label={label} value={value || '?'} />)}</div>
       {summary && <div className="report-summary"><h4>Interpretation</h4><p>{summary}</p></div>}
+      {source === 'financial_analyst' && output?.hallucination_check && <section className="financial-audit">
+        <div className="panel-heading"><h4>Financial verification</h4><Badge tone={output.hallucination_check.passed ? 'success' : 'warning'}>{output.hallucination_check.passed ? 'Grounded' : 'Review needed'}</Badge></div>
+        <div className="report-facts"><Metric label="Model steps" value={number(output.analysis_metrics?.react_steps)} /><Metric label="Valid tool calls" value={`${number(output.analysis_metrics?.valid_tool_calls)} / ${number(output.analysis_metrics?.requested_tool_calls)}`} /><Metric label="Grounded claims" value={percent(output.analysis_metrics?.grounded_claim_rate)} /></div>
+        {output.hallucination_check.flags?.length > 0 && <ul className="audit-flags">{output.hallucination_check.flags.map((flag,index) => <li key={index}><strong>{humanize(flag.kind)}</strong>{flag.metric && <span> ? {humanize(flag.metric)}</span>}{flag.message && <p>{flag.message}</p>}</li>)}</ul>}
+        <RawDetails label="Tool actions and observations" value={output.react_trace} />
+        <RawDetails label="Numeric claims and verification" value={{claims:output.financial_claims,check:output.hallucination_check}} />
+      </section>}
       <RawDetails label="Full report data" value={output} />
       <RawDetails label="Prompt sent to the model" value={entry.prompt} text />
       <RawDetails label="Stage input" value={entry.input} />

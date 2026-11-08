@@ -121,3 +121,10 @@ npm run build
 
 The full live research study and human reflective analysis are separate from
 regression checks. Do not report mock accuracy as evidence for the problem statement.
+
+## Financial Analyst enhancement
+
+The analyst now uses bounded model-selected financial tools and validates cited
+numeric claims before releasing a recommendation. See [design, metrics and offline
+benchmark](docs/FINANCIAL_ANALYST.md). This adds inference calls to the financial
+stage; the standalone baseline and teammate-owned integration boundary are unchanged.
