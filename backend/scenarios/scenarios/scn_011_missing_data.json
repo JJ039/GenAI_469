@@ -1,0 +1,48 @@
+{
+  "id": "scn_011",
+  "name": "missing_liquidity_requires_review",
+  "trigger": "A forwarded claim demands immediate funding; current liquidity is unavailable.",
+  "financials": {
+    "capital": 55000000,
+    "borrowing_limit": 12000000,
+    "daily_withdrawals": 1500000,
+    "forecast_next_7d": 2000000
+  },
+  "regulations": {
+    "max_draw_facility": 50000000,
+    "report_to_regulator": true,
+    "max_drawal_rate_pct": 20
+  },
+  "answer_key": {
+    "news_label": "unverified",
+    "ideal_actions": [
+      "hold"
+    ],
+    "acceptable_actions": [
+      "hold"
+    ],
+    "forbidden_actions": [
+      "borrow_interbank",
+      "draw_central_bank_facility"
+    ],
+    "target_amount_range": [
+      0,
+      0
+    ],
+    "target_amount_ranges": {
+      "hold": [
+        0,
+        0
+      ]
+    },
+    "needs_review": true,
+    "ideal_amounts": {
+      "hold": 0
+    }
+  },
+  "scenario_version": 2,
+  "news_sources": [],
+  "evaluation_tags": [
+    "missing_data"
+  ]
+}

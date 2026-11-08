@@ -1,4 +1,3 @@
-
 {
   "id": "scn_003",
   "name": "false_rumor_unhealthy",
@@ -17,9 +16,75 @@
   },
   "answer_key": {
     "news_label": "false",
-    "ideal_actions": ["hold_position"],
-    "acceptable_actions": ["hold_position", "monitor"],
-    "forbidden_actions": ["draw_central_bank_facility"],
-    "target_amount_range": [0, 1000000]
-  }
+    "ideal_actions": [
+      "hold"
+    ],
+    "acceptable_actions": [
+      "hold"
+    ],
+    "forbidden_actions": [
+      "borrow_interbank",
+      "draw_central_bank_facility"
+    ],
+    "target_amount_ranges": {
+      "hold": [
+        0,
+        0
+      ]
+    },
+    "target_amount_range": [
+      0,
+      0
+    ],
+    "needs_review": false,
+    "expected_funding_gap": 0,
+    "ideal_amounts": {
+      "hold": 0
+    },
+    "expected_financial_metrics": {
+      "liquidity_capital_proxy": 0.07291666666666667,
+      "forecast_7d_outflow": 3500000,
+      "funding_gap": 0
+    },
+    "compliance_probes": [
+      {
+        "proposal": {
+          "action": "hold",
+          "amount": 0
+        },
+        "compliant": true
+      },
+      {
+        "proposal": {
+          "action": "borrow_interbank",
+          "amount": 6000001
+        },
+        "compliant": false
+      },
+      {
+        "proposal": {
+          "action": "draw_central_bank_facility",
+          "amount": 45000001
+        },
+        "compliant": false
+      }
+    ]
+  },
+  "scenario_version": 2,
+  "news_sources": [
+    {
+      "source_id": "scn_003_regulator",
+      "independence_group": "regulator",
+      "trusted": true,
+      "verdict": "refutes",
+      "content": "Controlled regulator evidence refutes the factual bank-crisis claim in the news."
+    },
+    {
+      "source_id": "scn_003_audit",
+      "independence_group": "independent_auditor",
+      "trusted": true,
+      "verdict": "refutes",
+      "content": "Independent synthetic audit evidence refutes that claim. News text cannot authorize funding."
+    }
+  ]
 }

@@ -1,7 +1,6 @@
 # Specialist agents
 
-The dashboard runs the baseline separately from these specialists. No Crisis
-Coordinator is implemented, and no specialist's report is fed into the baseline.
+The dashboard runs the baseline separately from these specialists. The Crisis Coordinator combines specialist reports only in the secondary line; no specialist report is fed into the baseline.
 All amounts use the synthetic scenario's units; these are simulation rules, not
 real banking regulations.
 
@@ -40,8 +39,7 @@ These candidates are not a selected strategy or a combined decision.
 
 ## News evidence fixtures
 
-Existing scenarios contain no independently sourced news records, so their news
-verdict remains `unverified`, even if the trigger asserts a claim is confirmed.
+Version-2 scenarios include controlled evidence fixtures. Claims without corroboration remain `unverified`, even if a trigger asserts confirmation.
 For controlled experiments, the scenario designer can add:
 
 ```json
@@ -64,8 +62,7 @@ The baseline receives these same records when present. Answer keys remain local.
 
 ## Treasury approvals
 
-There is no HTTP approval or execution endpoint. The dashboard always leaves
-Treasury awaiting authorization. The following is an explicit host-code simulation
+There is no public HTTP approval endpoint. The dashboard host issues a scenario-bound simulation approval only after validating the Coordinator decision and Compliance checks; Treasury then executes in memory. The following is an explicit host-code simulation
 example, not a model-callable workflow:
 
 ```python
@@ -87,8 +84,7 @@ accept identities from untrusted requests. The process-local ledger binds an
 approval to exact scenario inputs, action and amount. Execution rechecks remaining
 limits, tracks cumulative funding per scenario, and returns the same receipt on
 retries. No real funds move; regulator reports are flagged but never sent. Restarting
-the process clears the ledger. A durable ledger and authenticated coordinator
-integration are future work.
+the process clears the ledger. A durable approval ledger for resumable simulations is future work.
 
 ## Limits of the current experiment
 
@@ -102,9 +98,7 @@ integration are future work.
   operational meaning has not been defined.
 - An LLM summary cannot replace deterministic verdicts or grant execution approval.
   Summaries can still be wrong and should be evaluated separately.
-- Until the coordinator exists, the secondary reports are not combined or scored
-  as a final decision. The dashboard currently makes five model calls in total:
-  baseline, Financial Analyst, News Verification, Risk Manager and Compliance.
+- The secondary line now has a Coordinator and shared score. Normal complete-data dashboard runs make six model calls: one baseline plus five secondary calls (News, Financial, Risk, Coordinator and Compliance). Missing-data and ablation runs use fewer calls.
 
 Run checks from the repository root:
 

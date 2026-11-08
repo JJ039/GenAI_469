@@ -112,9 +112,10 @@ class SpecialistTests(unittest.TestCase):
         root = Path(__file__).resolve().parent.parent
         for path in (root / 'backend/scenarios/scenarios').glob('scn_*'):
             scenario = json.loads(path.read_text(encoding='utf-8'))
-            self.assertEqual(run_news_verification(scenario)['report']['news_label'], 'unverified')
-            self.assertEqual(run_risk_manager(scenario)['status'], 'completed')
-            self.assertFalse(run_compliance_officer(scenario)['report']['authorization_granted'])
+            self.assertEqual(run_news_verification(scenario)['report']['news_label'], scenario['answer_key']['news_label'])
+            if 'liquidity' in scenario['financials']:
+                self.assertEqual(run_risk_manager(scenario)['status'], 'completed')
+                self.assertFalse(run_compliance_officer(scenario)['report']['authorization_granted'])
             self.assertFalse(run_treasury_operations(scenario)['executed'])
 
 

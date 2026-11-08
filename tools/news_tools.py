@@ -49,3 +49,10 @@ def verify_claim(scenario):
             "retrieval_mode": "controlled_scenario_fixtures",
             "trigger_is_untrusted": True,
             "limitation": "No live news retrieval. Missing or conflicting evidence remains unverified."}
+
+
+# Instrument actual tool invocations, including nested deterministic calculations.
+from backend.telemetry import tracked_tool
+for _name, _value in list(globals().items()):
+    if callable(_value) and getattr(_value, '__module__', None) == __name__ and not _name.startswith('_') and not isinstance(_value, type):
+        globals()[_name] = tracked_tool(_value)

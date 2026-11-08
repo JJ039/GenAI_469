@@ -1,209 +1,119 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+"""Dashboard API backed by the same orchestration and evaluator as the CLI."""
+from copy import deepcopy
+from datetime import datetime, timezone
 import json
-import math
 from pathlib import Path
 import sys
 import threading
 import time
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "backend" / "agents"))
-from main_agent import run_agent, build_prompt
-from financial_analyst import run_financial_analyst
-from news_verification import run_news_verification
-from risk_manager import run_risk_manager
-from compliance_officer import run_compliance_officer
-from treasury_operations import run_treasury_operations
-from output_schema import HermesBankDecision
-from scorer import score_scenario, compute_max_score
-
-# Add future specialist agents here. Each accepts (scenario, llm_runner).
-SECONDARY_AGENTS = {
-    "financial_analyst": run_financial_analyst,
-    "news_verification": run_news_verification,
-    "risk_manager": run_risk_manager,
-    "compliance_officer": run_compliance_officer,
-    "treasury_operations": run_treasury_operations,
-}
+from backend.llm_client import LLMClient
+from backend.systems import run_system
+from backend.agents.main_agent import scenario_inputs
+from backend.scenarios.validation import load_scenarios
 
 app = Flask(__name__)
 CORS(app)
-SCENARIOS_DIR = ROOT / "backend" / "scenarios" / "scenarios"
+SCENARIOS_DIR = ROOT / 'backend/scenarios/scenarios'
 task_lock = threading.Lock()
-task_result = {}
-task_error = None
-task_status = "pending"
+task_status = 'pending'
+task_id = 0
 task_stage = 0
 task_trace = []
-task_id = 0
-task_message = "Waiting to start."
+task_result = {}
+task_error = None
+task_message = 'Waiting to start.'
 task_stage_started_at = time.monotonic()
 
 
-def publish_stage(stage, message, trace_entry=None):
-    global task_stage, task_trace, task_message, task_stage_started_at
-    with task_lock:
-        task_stage = stage
-        task_message = message
-        task_stage_started_at = time.monotonic()
-        if trace_entry is not None:
-            task_trace = [*task_trace, trace_entry]
+def make_client():
+    return LLMClient()
 
 
-def call_llm(prompt):
-    response = run_agent(prompt)
-    if not response:
-        raise RuntimeError("The LLM runner returned no response.")
-    raw, model = response
-    text = raw.strip()
-    if text.startswith("```"):
-        text = "\n".join(text.splitlines()[1:-1])
-    try:
-        parsed = json.loads(text)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("The LLM returned invalid JSON. Please retry the scenario.") from exc
-    if not isinstance(parsed, dict):
-        raise ValueError("The LLM response must be a JSON object.")
-    return parsed, model
-
-
-def validate_action(data):
-    decision = HermesBankDecision(**data).model_dump()
-    if decision["news_label"] not in ("unverified", "false", "credible"):
-        raise ValueError("The LLM returned an invalid news label.")
-    if decision["action"] not in ("hold", "borrow_interbank", "draw_central_bank_facility"):
-        raise ValueError("The LLM returned an invalid action.")
-    if not math.isfinite(decision["amount"]) or not math.isfinite(decision["confidence"]):
-        raise ValueError("The LLM returned non-finite numbers.")
-    if decision["action"] == "hold" and decision["amount"] != 0:
-        raise ValueError("A hold decision must have zero amount.")
-    return decision
-
-
-@app.route("/api/scenarios", methods=["GET"])
+@app.get('/api/scenarios')
 def list_scenarios():
-    files = sorted(p for p in SCENARIOS_DIR.glob("scn_*") if p.is_file())
-    return jsonify({"scenarios": [{"id": p.name, "name": p.stem} for p in files]})
+    try:
+        scenarios = load_scenarios(SCENARIOS_DIR)
+    except (ValueError, KeyError, TypeError) as exc:
+        return jsonify(error='Scenario validation failed: ' + str(exc)), 500
+    return jsonify(scenarios=[{'id':p.name,'name':s.get('name',p.stem)} for p,s in scenarios])
 
 
-@app.route("/api/run", methods=["POST"])
-def run_agent_endpoint():
-    global task_result, task_error, task_status, task_stage, task_trace, task_id, task_message, task_stage_started_at
-    data = request.get_json(silent=True) or {}
-    scenario_file = data.get("scenario") if isinstance(data, dict) else None
-    allowed = {p.name for p in SCENARIOS_DIR.glob("scn_*") if p.is_file()}
-    if not isinstance(scenario_file, str) or scenario_file not in allowed:
-        return jsonify({"error": "Choose a valid scenario file."}), 400
-    with open(SCENARIOS_DIR / scenario_file, encoding="utf-8") as f:
-        scenario = json.load(f)
-    # Never send the scoring answer key to the models.
-    task_input = {key: scenario.get(key, {}) for key in ("trigger", "financials", "regulations")}
-    task_input["id"] = scenario.get("id")
-    task_input["news_sources"] = scenario.get("news_sources", [])
+@app.post('/api/run')
+def start_run():
+    global task_status, task_id, task_stage, task_trace, task_result, task_error, task_message, task_stage_started_at
+    data = request.get_json(silent=True)
+    scenario_file = data.get('scenario') if isinstance(data,dict) else None
+    allowed = {p.name:p for p in SCENARIOS_DIR.glob('scn_*.json')}
+    if not isinstance(scenario_file,str) or scenario_file not in allowed:
+        return jsonify(error='Choose a valid scenario file.'), 400
+    scenario = json.loads(allowed[scenario_file].read_text(encoding='utf-8'))
     with task_lock:
-        if task_status == "running":
-            return jsonify({"error": "An LLM run is already in progress."}), 409
+        if task_status == 'running':
+            return jsonify(error='An evaluation is already running.'), 409
         task_id += 1
         run_id = str(task_id)
-        task_result = {}
-        task_error = None
-        task_stage = 1
-        task_trace = []
-        task_status = "running"
-        task_message = "Main agent is assessing the scenario through Hermes."
+        task_status, task_stage = 'running', 1
+        task_trace, task_result, task_error = [], {}, None
+        task_message = 'Running independent baseline.'
         task_stage_started_at = time.monotonic()
 
-    def run_llm_async():
-        global task_result, task_error, task_status, task_message
-        baseline = {"status": "pending"}
-        secondary = {"status": "running", "agents": {}}
+    def worker():
+        global task_status, task_stage, task_trace, task_result, task_error, task_message, task_stage_started_at
+        def update(entry):
+            global task_message, task_stage_started_at
+            with task_lock:
+                if entry.get('state') != 'running':
+                    task_trace.append(entry)
+                task_message = entry['source'].replace('_',' ') + (' is calling the model.' if entry.get('state') == 'running' else ' finished.')
+                task_stage_started_at = time.monotonic()
         try:
-            # The baseline is one standalone main-agent call, with no specialist input.
-            prompt = build_prompt(task_input)
-            decision, model = call_llm(prompt)
-            decision = validate_action(decision)
-            score = score_scenario(decision, scenario)
-            max_score = compute_max_score(scenario)
-            baseline = {
-                "status": "completed", "decision": decision, "model": model,
-                "score": score, "max_score": max_score,
-                "normalized": score / max_score if max_score else 0.0
-            }
-            publish_stage(2, "Running the independent secondary agent line.", {
-                "turn": 1, "stage": "baseline", "input": task_input,
-                "prompt": prompt, "output": decision, "source": "main_agent", "model": model,
-                "line": "baseline"
-            })
+            client = make_client()
+            baseline = run_system(scenario,'baseline',client,update)
+            with task_lock:
+                task_result = {'baseline':baseline}
+                task_stage = 2
+                task_message = 'Running specialists, coordinator, compliance and simulated treasury.'
+                task_stage_started_at = time.monotonic()
+            secondary = run_system(scenario,'multi_agent',client,update)
+            result = {'scenario':scenario_file,'scenario_input':scenario_inputs(scenario),
+                      'baseline':baseline,'secondary':secondary,'mode':'baseline_and_multi_agent'}
+            # Persist every dashboard result, including model errors and unsafe proposals.
+            directory = ROOT/'results/dashboard'
+            directory.mkdir(parents=True,exist_ok=True)
+            stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+            (directory/(stamp+'.json')).write_text(json.dumps(result,indent=2,allow_nan=False),encoding='utf-8')
+            with task_lock:
+                task_result = result
+                task_stage = 3
+                task_trace.append({'stage':'observe','source':'shared_evaluator','output':{
+                    'baseline':baseline['metrics'],'multi_agent':secondary['metrics']}})
+                both_failed = baseline['status']=='error' and secondary['status']=='error'
+                task_status = 'error' if both_failed else 'completed'
+                task_error = ('Both lines failed. Baseline: ' + baseline.get('error','') + '; Multi-agent: ' + secondary.get('error','')) if both_failed else None
+                task_message = 'Evaluation finished. Execution is simulated only.'
         except Exception as exc:
-            baseline = {"status": "error", "error": str(exc)}
-            publish_stage(2, "Baseline failed. Running the independent secondary agent line.")
-        with task_lock:
-            # Do not expose a dictionary that the worker will mutate while polling.
-            task_result = {"baseline": baseline, "secondary": {"status": "running", "agents": {}}}
-
-        # Specialists see the original scenario only, never the baseline decision.
-        for name, agent in SECONDARY_AGENTS.items():
-            agent_call = {}
-
-            def specialist_runner(prompt):
-                agent_call["prompt"] = prompt
-                output, used_model = call_llm(prompt)
-                agent_call["model"] = used_model
-                return output
-
-            try:
-                output = agent(task_input, llm_runner=specialist_runner)
-                secondary["agents"][name] = {
-                    "status": "completed", "output": output, "model": agent_call.get("model")
-                }
-                publish_stage(2, "Running the secondary agent line.", {
-                    "turn": len(task_trace) + 1, "stage": "secondary", "input": task_input,
-                    "prompt": agent_call.get("prompt"), "output": output,
-                    "source": name, "model": agent_call.get("model"), "line": "secondary"
-                })
-            except Exception as exc:
-                secondary["agents"][name] = {"status": "error", "error": str(exc)}
-
-        secondary["status"] = (
-            "completed" if all(a["status"] == "completed" for a in secondary["agents"].values())
-            else "error"
-        )
-        secondary["note"] = "Specialist recommendations only. A combined secondary decision is not implemented yet."
-        evaluation = {"baseline": {key: baseline[key] for key in ("status", "score", "max_score", "normalized") if key in baseline},
-                      "secondary": "Not scored: no combined decision yet."}
-        publish_stage(4, "Both lines finished.", {
-            "turn": len(task_trace) + 1, "stage": "observe", "output": evaluation, "source": "scorer"
-        })
-        with task_lock:
-            task_result = {
-                "scenario": scenario_file, "scenario_input": task_input,
-                "baseline": baseline, "secondary": secondary,
-                "trace": list(task_trace), "mode": "baseline_and_secondary"
-            }
-            both_failed = baseline["status"] == "error" and secondary["status"] == "error"
-            task_status = "error" if both_failed else "completed"
-            task_error = ("Both lines failed. Baseline: " + baseline.get("error", "") +
-                          "; Secondary: " + "; ".join(a.get("error", "") for a in secondary["agents"].values())) if both_failed else None
-            task_message = "Both lines finished. Check each line for its result or error."
-
-    threading.Thread(target=run_llm_async, daemon=True).start()
-    return jsonify({"task_id": run_id, "status": "running", "stage": 1, "mode": "baseline_and_secondary", "message": "LLM agents started."})
+            with task_lock:
+                task_status='error'
+                task_error=str(exc)
+                task_message='Evaluation failed.'
+    threading.Thread(target=worker,daemon=True).start()
+    return jsonify(task_id=run_id,status='running',stage=1,message='Evaluation started.')
 
 
-@app.route("/api/task/<run_id>", methods=["GET"])
+@app.get('/api/task/<run_id>')
 def get_task(run_id):
     with task_lock:
         if run_id != str(task_id):
-            return jsonify({"error": "Not found"}), 404
-        snapshot = {
-            "status": task_status, "stage": task_stage, "trace": list(task_trace),
-            "message": task_message, "elapsed_seconds": max(0, int(time.monotonic() - task_stage_started_at)),
-            "result": dict(task_result), "error": task_error, "mode": "baseline_and_secondary"
-        }
-    return jsonify(snapshot)
+            return jsonify(error='Not found'),404
+        return jsonify(status=task_status,stage=task_stage,trace=deepcopy(task_trace),
+                       result=deepcopy(task_result),error=task_error,message=task_message,
+                       elapsed_seconds=max(0,int(time.monotonic()-task_stage_started_at)))
 
 
-if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+if __name__ == '__main__':
+    app.run(port=5000,debug=True)

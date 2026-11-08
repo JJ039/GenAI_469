@@ -1,144 +1,129 @@
-# Bank Crisis Multi-Agent System + Dashboard
+# Bank Crisis: baseline versus multi-agent evaluation
 
-A reproducible multi-agent LLM evaluation system for bank-run crisis scenarios, comparing a single-LLM baseline against a multi-agent coordinator with a React + Flask dashboard for visualizing results.
+A synthetic crisis experiment with a standalone LLM baseline and a coordinated
+specialist system. Financial actions are simulated in memory; no banking APIs
+are connected. Scoring uses versioned answer keys that are never sent to models.
 
-## Project Structure
+## Start the dashboard (Windows PowerShell)
 
-```
-bank-crisis-project/
-├── backend/   # Agent evaluation engine
-│   ├── agents/                          # main_agent.py, scorer.py, output_schema.py
-│   ├── scenarios/scenarios/             # 10 JSON test scenarios
-│   ├── scripts/                         # run_baseline.py, test_scenarios.py
-│   ├── skills/route-model/              # Model routing skill
-│   ├── config.yaml                      # Hermes model aliases
-│   └── .env.example                     # API key template
-├── frontend/                     # React + Flask visualization dashboard
-│   ├── server.py                        # Flask API (port 5000)
-│   ├── src/                             # React frontend (port 3000)
-│   └── requirements.txt                 # Python dependencies
-└── README.md
-```
-
-## Quick Start
-
-### Dashboard agent flow
-
-The dashboard runs two independent lines on the same scenario:
-
-- **Baseline:** `main_agent.py` makes one standalone LLM decision. Its output is
-  scored locally against the scenario answer key.
-- **Secondary:** Financial Analyst, News Verification, Risk Manager and Compliance
-  Officer produce their own reports using deterministic tools and LLM interpretation.
-  Treasury Operations waits for explicit simulation approval. Specialists are registered in
-  `SECONDARY_AGENTS` in `frontend/server.py`; each accepts `(scenario, llm_runner)`.
-
-See [specialist agent documentation](backend/agents/README.md) for interfaces,
-evidence fixtures, approval examples and simulation limitations. Crisis Coordinator
-is intentionally not implemented.
-
-Neither line receives the other line's outputs. They currently execute in sequence
-within the background job, but are independent evaluations. Failures in one line
-preserve results from the other. The dashboard displays them side by side with
-actual prompts, outputs, and model names. The secondary line has no combined
-final decision or comparison score yet. No banking action is executed, and the
-answer key is never sent to a model.
-
-From `frontend`, install dependencies and restart the server:
+From the repository root:
 
 ```powershell
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
-.\venv\Scripts\python.exe server.py
+python -m venv frontend/venv
+.\frontend\venv\Scripts\python.exe -m pip install -r frontend/requirements.txt
+.\frontend\venv\Scripts\python.exe frontend/server.py
 ```
 
-Hermes must be installed and configured for the model identifiers in
-`backend/agents/main_agent.py`. The runner checks its usual Windows install
-location and PATH. For a different installation, set the executable before
-starting the server:
+In a second terminal:
 
 ```powershell
-$env:HERMES_EXECUTABLE = "C:\path\to\hermes.exe"
-```
-
-Provider keys can be supplied through environment variables or `backend/.env`
-(`OPENROUTER_API_KEY` and `GOOGLE_API_KEY`). Do not commit credentials.
-The runner tries its second configured model if the first call fails. Each model
-attempt has a 180-second timeout, so a stage may take several minutes.
-
-Run the API integration checks without calling external models:
-
-```powershell
-cd frontend
-.\venv\Scripts\python.exe -B -m unittest discover -p "test_*.py" -v
-```
-
-### 1. Install Hermes Agent
-```bash
-# Windows: download from https://hermes-agent.nousresearch.com
-# Verify: hermes --version
-```
-
-### 2. Configure API Keys
-```bash
-cd backend
-cp .env.example .env
-# Edit .env and add OPENROUTER_API_KEY and GOOGLE_API_KEY
-```
-
-### 3. Install Hermes Config
-```bash
-cp config.yaml ~/.hermes/config.yaml
-hermes config set model.aliases.free-gemini gemini/gemini-3.8-flash
-hermes config set model.aliases.free-openrouter nvidia/nemotron-3-ultra-550b-a55b:free
-```
-
-### 4. Start the Dashboard
-
-**Terminal 1 — Flask API:**
-```bash
-cd frontend
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-python server.py
-```
-
-**Terminal 2 — React Frontend:**
-```bash
 cd frontend
 npm install
 npm start
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000. Choose a scenario and click **Run LLM Agents**. Each
+line has its own final decision and score, plus specialist traces, guardrail
+interventions and simulated receipts. Dashboard results are saved under
+`results/dashboard/`, including failures.
 
-### 5. Run Evaluations (CLI)
-```bash
-cd backend
-python scripts/test_scenarios.py
-# or
-python scripts/run_baseline.py --runs 5 --output results/base
+## Model and credentials
+
+Default inference goes directly to OpenRouter: fixed model, explicit temperature,
+no model tools, no hidden retries, and provider token/cost telemetry. Hermes is
+not required for this path. Existing OpenRouter credentials saved by Hermes are
+loaded from `%LOCALAPPDATA%/hermes/.env` or `~/.hermes/.env`. Alternatively copy
+`backend/.env.example` to `backend/.env` and enter your key there. Environment
+variables override files. Never commit your key.
+
+```text
+OPENROUTER_API_KEY=your_private_key
+LLM_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
+LLM_TRANSPORT=openrouter
 ```
 
-## Tech Stack
+Set `LLM_MODEL` to an exact available OpenRouter model id. Both systems use the
+same client/model/temperature. Unavailable models, missing credits, rate limits
+and invalid JSON count as failures; the system does not silently change models.
+Availability and quotas are controlled by your provider.
 
-- **Agent Framework:** Hermes Agent (OpenRouter + Google AI Studio Gemini)
-- **Models:** NVIDIA Nemotron 3 Ultra 550B (free via OpenRouter), Gemini 2.0 Flash (free tier)
-- **Backend:** Flask (Python 3.11)
-- **Frontend:** React 19 (Create React App)
-- **Evaluation:** Per-scenario answer keys with scoring (ideal=3, acceptable=2, forbidden=-2)
+For manual dashboard testing only, `LLM_TRANSPORT=hermes` uses an isolated,
+one-shot Hermes CLI call with toolsets disabled and project rules excluded.
+`HERMES_EXECUTABLE` can specify its executable. Hermes temperature comes from its
+installed configuration and is recorded as uncontrolled; the research batch runner
+requires OpenRouter transport for reproducibility.
 
-## Metrics
+## Run the comparison
 
-- Decision quality (per-scenario score)
-- Confidence-weighted score
-- Safety violations (forbidden actions)
-- Injection resistance
-- Reliability (mean ± std across 5 runs)
-- Efficiency (tokens / calls / time)
+From the repository root, check the plumbing without external model calls:
 
-## License
+```powershell
+.\frontend\venv\Scripts\python.exe backend/scripts/run_evaluation.py --mock --runs 5
+```
 
-MIT
-EOF
-echo "README CREATED"
+Mock outputs are watermarked **NOT LLM PERFORMANCE RESULTS**. They only check
+that the integration and report generation work.
+
+Run the real study when ready (13 scenarios x 5 repeats x 3 systems = 195 runs;
+the specialist systems make several model calls per run, up to 650 inference requests before missing-data reductions; check your provider quota):
+
+```powershell
+.\frontend\venv\Scripts\python.exe backend/scripts/run_evaluation.py --runs 5
+```
+
+A smaller real check:
+
+```powershell
+.\frontend\venv\Scripts\python.exe backend/scripts/run_evaluation.py --runs 1 --limit 2 --systems baseline multi_agent
+```
+
+Options include `--model`, `--temperature`, `--max-tokens`, `--reasoning-effort`, `--seed`, `--output`, and `--scenarios`.
+`backend/scripts/run_baseline.py --runs 5` remains a baseline-only compatibility
+command. Defaults use one model with temperature 0.1, maximum output budget 4096 and requested reasoning effort low. Jobs are shuffled with a
+saved seed, and failures remain in reliability denominators.
+
+Every timestamped output directory contains:
+
+- `manifest.json`: model, temperature, rubric version, suite hash, ablation scope.
+- `scenarios.json`: exact inputs and answer keys used for this run.
+- `runs.jsonl`: raw model outputs, prompts, proposals, final decisions, approval
+  outcomes, tool calls and per-agent diagnostics; flushed after each run.
+- `metrics.csv`: decision quality, confidence penalties, safety and efficiency.
+- `summary.json`: repeated-run consistency, pass^k, failure categories, paired
+  scenario comparisons and bootstrap intervals.
+- `report.md`: comparison table and reflective-analysis worksheet.
+- `manual_review.csv`: blank human-rating fields for rationales and injection
+  adherence. No subjective scores are invented automatically.
+
+## Architecture and limitations
+
+Baseline: raw scenario evidence -> one LLM decision -> shared evaluator.
+
+Multi-agent: News Verification + Financial Analyst -> Risk Manager -> Crisis
+Coordinator proposal -> Compliance Officer checks the actual proposal -> host
+simulation approval -> Treasury Operations -> the same evaluator.
+
+The `multi_agent_no_compliance` ablation skips the Compliance Officer and the
+host compliance/news correction gate. Treasury still enforces hard simulation
+limits. This tests that specific gate, not the removal of every safety mechanism.
+Original proposals are retained so blocked unsafe proposals are still measured.
+
+The 13 version-2 scenarios have controlled evidence fixtures, canonical action
+names, explicit missing-data expectations, and injection cases. News retrieval
+is simulated, and source trust/verdict metadata are supplied by the scenario
+designer, equally visible to the baseline. Risk is a cash-coverage proxy, not a
+probability of bank failure. Rules are synthetic funding limits, not a complete
+banking regulatory model. See [experiment design](docs/EXPERIMENT.md) and
+[agent interfaces](backend/agents/README.md). See [validation and pilot reflection](docs/VALIDATION.md) for observed successes, failures and limitations.
+
+## Verification
+
+```powershell
+.\frontend\venv\Scripts\python.exe -B -m unittest discover -s frontend -p "test_*.py" -v
+cd frontend
+npm test -- --watchAll=false --runInBand
+npm run build
+```
+
+The full live research study and human reflective analysis are separate from
+regression checks. Do not report mock accuracy as evidence for the problem statement.

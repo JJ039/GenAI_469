@@ -13,7 +13,11 @@ function App() {
 
   useEffect(() => {
     fetch('http://localhost:5000/api/scenarios')
-      .then(r => r.json())
+      .then(async r => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Could not load scenarios.');
+        return data;
+      })
       .then(data => setScenarios(data.scenarios || []))
       .catch(() => setProgress("Could not load scenarios. Check that the agent server is running."));
   }, []);
@@ -56,7 +60,7 @@ function App() {
     setResult(null);
     setTrace([]);
     setCurrentStage(1);
-    setStageMessage("Calling the agents through Hermes.");
+    setStageMessage("Calling the configured model for both systems.");
     setStageElapsed(0);
 
     fetch('http://localhost:5000/api/run', {
@@ -79,8 +83,8 @@ function App() {
 
   const stageConfig = [
     { key: 'baseline', label: 'Baseline LLM', color: '#1976d2', icon: '1' },
-    { key: 'secondary', label: 'Secondary agents', color: '#388e3c', icon: '2' },
-    { key: 'observe', label: 'Evaluate baseline', color: '#7b1fa2', icon: '3' }
+    { key: 'secondary', label: 'Multi-agent system', color: '#388e3c', icon: '2' },
+    { key: 'observe', label: 'Shared evaluation', color: '#7b1fa2', icon: '3' }
   ];
 
   const renderStageData = turnData => {
@@ -129,13 +133,13 @@ function App() {
       {(taskId || trace.length > 0 || result) && (
         <div style={{ marginTop: "20px" }}>
           <h3 style={{ color: "#1565c0", marginBottom: "6px" }}>LLM Agent Trace</h3>
-          <div style={{ color: "#555", fontSize: "13px", marginBottom: "10px" }}>Two independent lines receive the same scenario: baseline LLM and secondary specialist agents.</div>
+          <div style={{ color: "#555", fontSize: "13px", marginBottom: "10px" }}>Baseline versus coordinated specialists. Both use the same scenario and evaluation rubric.</div>
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "15px" }}>
             {stageConfig.map((stage, i) => {
               const stageEntries = trace.filter(t => t.stage === stage.key);
               const turnData = stageEntries[0] || null;
               const isComplete = Boolean(turnData);
-              const isActive = !isComplete && taskId && currentStage === i + 1;
+              const isActive = taskId && currentStage === i + 1;
               return (
                 <div key={stage.key} style={{ flex: "1 1 220px", minWidth: "220px", padding: "15px", borderRadius: "8px", border: `2px solid ${isComplete || isActive ? stage.color : "#ccc"}`, background: isActive ? "#fff8e1" : isComplete ? "#fff" : "#f5f5f5", opacity: isComplete || isActive ? 1 : 0.6, transition: "all 0.3s ease" }}>
                   <div style={{ fontSize: "20px", marginBottom: "8px" }}>{stage.icon}</div>
@@ -153,7 +157,7 @@ function App() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginTop: "15px" }}>
           <section style={{ flex: "1 1 360px", padding: "16px", border: "2px solid #1976d2", borderRadius: "8px" }}>
             <h2>Baseline LLM</h2>
-            <p>Main agent decision from the scenario alone.</p>
+            <p>Standalone LLM decision from the same raw scenario evidence.</p>
             {result.baseline?.status === "error" ? <p role="alert">{result.baseline.error}</p> : (
               <>
                 <strong>Score: {result.baseline?.score}/{result.baseline?.max_score} ({Math.round((result.baseline?.normalized || 0) * 100)}%)</strong>
@@ -162,8 +166,20 @@ function App() {
             )}
           </section>
           <section style={{ flex: "1 1 360px", padding: "16px", border: "2px solid #388e3c", borderRadius: "8px" }}>
-            <h2>Secondary agent line</h2>
+            <h2>Multi-agent system</h2>
             <p>{result.secondary?.note}</p>
+            {result.secondary?.error && <p role="alert">{result.secondary.error}</p>}
+            {result.secondary?.decision && <>
+              <strong>Score: {result.secondary.score}/{result.secondary.max_score} ({Math.round((result.secondary.normalized || 0) * 100)}%)</strong>
+              <h3>Final decision</h3>
+              <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(result.secondary.decision, null, 2)}</pre>
+              <details><summary>Original coordinator proposal and guardrail interventions</summary>
+                <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify({proposal: result.secondary.proposed_decision, interventions: result.secondary.interventions, treasury: result.secondary.treasury}, null, 2)}</pre>
+              </details>
+            </>}
+            <details><summary>Evaluation metrics and efficiency</summary>
+              <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify({baseline: result.baseline?.metrics, multi_agent: result.secondary?.metrics}, null, 2)}</pre>
+            </details>
             {Object.entries(result.secondary?.agents || {}).map(([name, agent]) => (
               <div key={name}>
                 <h3>{name.replace(/_/g, ' ')}</h3>

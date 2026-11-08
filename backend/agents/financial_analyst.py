@@ -9,7 +9,7 @@ Do not claim the liquidity/capital proxy is regulatory LCR.
 Do not approve or execute actions; recommend only.
 Return JSON only, with keys: recommendation (one of hold, borrow_interbank,
 draw_central_bank_facility), amount (nonnegative number), confidence (0..1),
-rationale (short text). Funding recommendations must not exceed suggested_funding_amount.
+rationale (short text). Funding recommendations must not exceed suggested_funding_by_action for the selected recommendation.
 If data are insufficient, explain uncertainty. Do not invent financial figures.'''
 
 
@@ -26,11 +26,20 @@ def run_financial_analyst(scenario, llm_runner=None):
     decision = json.loads(raw) if isinstance(raw, str) else raw
     if decision['recommendation'] not in ('hold', 'borrow_interbank', 'draw_central_bank_facility'):
         raise ValueError('Invalid recommendation')
+    if set(decision) != {'recommendation', 'amount', 'confidence', 'rationale'}:
+        raise ValueError('Unexpected financial recommendation fields')
+    for key in ('amount', 'confidence'):
+        if isinstance(decision[key], bool) or not isinstance(decision[key], (int, float)):
+            raise ValueError(f'{key} must be numeric')
+    if not isinstance(decision['rationale'], str) or not decision['rationale'].strip():
+        raise ValueError('A financial rationale is required')
     amount = float(decision['amount'])
     confidence = float(decision['confidence'])
-    if not 0 <= confidence <= 1 or not 0 <= amount <= report['suggested_funding_amount']:
+    if not 0 <= confidence <= 1 or not 0 <= amount <= report['suggested_funding_by_action'][decision['recommendation']]:
         raise ValueError('Amount or confidence out of bounds')
     if decision['recommendation'] == 'hold' and amount != 0:
         raise ValueError('Hold must have zero amount')
+    decision['amount'] = amount
+    decision['confidence'] = confidence
     return {'agent': 'financial_analyst', 'metrics': report,
             'recommendation': decision, 'status': 'completed'}

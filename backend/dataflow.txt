@@ -1,15 +1,27 @@
-Depositors  ──withdrawals──▶  Cash / Liquidity
-        ▲                       │
-        │                       ▼
-   (outflows)            Daily withdrawals  ──▶  Forecast next 7 days
-        ▲                       │
-   (new deposits)          Capital + Liquidity  ──▶  Liquidity buffer after t days
-        │
-   (insured deposits stay)   Borrowing limit  ──▶  Max you can borrow
+Synthetic scenario inputs: untrusted news text + controlled source evidence + bank financials + simulation rules
 
-if liquidity > withdrawals => false, no crisis
-if liquidity < withdrawals, borrowing_limit covers the difference => credible news, draws on facility, crisis 
-if liquidity < withdrawals, borrowing_limit does not cover the difference =>credible news, no facility to draw on so borrow from other banks, crisis
-if try to borrow > borrowing_limit, stop action 
+BASELINE (independent)
+  raw scenario -> one LLM decision -> shared evaluation
 
-scenario.json is our input, 
+MULTI-AGENT (independent of baseline)
+  News Verification -> corroboration verdict
+  Financial Analyst -> numeric metrics + bounded funding recommendation
+  Risk Manager <- actual Financial Analyst recommendation + scenario candidates
+  Crisis Coordinator <- News + Financial + Risk reports -> proposed decision
+  Compliance Officer <- actual coordinator proposal -> deterministic checks + LLM interpretation
+  Host gate -> retain original proposal; block/correct unsafe or unsupported decision
+  Host simulation approval -> scenario/action/amount-bound ledger token
+  Treasury Operations -> simulated receipt; no real banking or reporting APIs
+  Shared evaluation -> compare final and original proposed decisions with local answer key
+
+News credibility is not inferred from liquidity. A false rumor can coexist with a real funding need.
+Funding gap = max(0, seven-day outflow - liquidity).
+Seven-day forecast is total outflow; if absent use daily withdrawals * 7 and disclose uncertainty.
+Missing required financial inputs -> hold zero, needs_review true.
+Interbank and facility limits are separate. Approval is a host decision, never an LLM-supplied token.
+
+Ablation disables Compliance Officer and host compliance/news gate only.
+Treasury minimum limits and simulation-only execution remain mandatory.
+
+Each system x scenario x repeat is logged. Answer keys are never sent to models.
+scenario.json is the authoring schema; scn_*.json are the actual versioned cases.
