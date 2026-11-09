@@ -1,0 +1,11 @@
+{
+  "scenario_id": "scn_003",
+  "stdout": {
+    "news_label": "false",
+    "action": "borrow_from_other_banks",
+    "amount": 3000000,
+    "confidence": 0.9,
+    "rationale": "The trigger explicitly states the social media claim is false and underlying bank health is adequate (48M capital). Current liquidity (3.5M) covers only ~1.25 days of withdrawals (2.8M/day). Borrowing 3M bridges the near-term gap until the panic subsides, within the 6M borrowing limit and regulatory 20% drawal rate constraint."
+  },
+  "stderr": ""
+}

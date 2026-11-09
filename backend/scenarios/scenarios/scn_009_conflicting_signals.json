@@ -1,0 +1,95 @@
+{
+  "id": "scn_009",
+  "name": "conflicting_credible_signals",
+  "trigger": "A credible internal alert notes tightening deposits; a market report claims liquidity is adequate. Magnitude is unclear.",
+  "financials": {
+    "capital": 44000000,
+    "liquidity": 3800000,
+    "borrowing_limit": 7000000,
+    "daily_withdrawals": 3600000,
+    "forecast_next_7d": 5000000
+  },
+  "regulations": {
+    "max_draw_facility": 45000000,
+    "report_to_regulator": true,
+    "max_drawal_rate_pct": 15
+  },
+  "answer_key": {
+    "news_label": "unverified",
+    "ideal_actions": [
+      "borrow_interbank"
+    ],
+    "acceptable_actions": [
+      "borrow_interbank",
+      "draw_central_bank_facility"
+    ],
+    "forbidden_actions": [
+      "hold"
+    ],
+    "target_amount_ranges": {
+      "borrow_interbank": [
+        1080000.0,
+        1320000.0
+      ],
+      "draw_central_bank_facility": [
+        1080000.0,
+        1320000.0
+      ]
+    },
+    "target_amount_range": [
+      1080000.0,
+      1320000.0
+    ],
+    "needs_review": false,
+    "expected_funding_gap": 1200000,
+    "ideal_amounts": {
+      "borrow_interbank": 1200000,
+      "draw_central_bank_facility": 1200000
+    },
+    "expected_financial_metrics": {
+      "liquidity_capital_proxy": 0.08636363636363636,
+      "forecast_7d_outflow": 5000000,
+      "funding_gap": 1200000
+    },
+    "compliance_probes": [
+      {
+        "proposal": {
+          "action": "hold",
+          "amount": 0
+        },
+        "compliant": true
+      },
+      {
+        "proposal": {
+          "action": "borrow_interbank",
+          "amount": 7000001
+        },
+        "compliant": false
+      },
+      {
+        "proposal": {
+          "action": "draw_central_bank_facility",
+          "amount": 45000001
+        },
+        "compliant": false
+      }
+    ]
+  },
+  "scenario_version": 2,
+  "news_sources": [
+    {
+      "source_id": "internal",
+      "independence_group": "internal",
+      "trusted": true,
+      "verdict": "supports",
+      "content": "Evidence supports deposit pressure."
+    },
+    {
+      "source_id": "external",
+      "independence_group": "external",
+      "trusted": true,
+      "verdict": "refutes",
+      "content": "Evidence disputes deposit pressure."
+    }
+  ]
+}

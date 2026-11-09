@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic crisis scenario v2",
+  "type": "object",
+  "required": [
+    "id",
+    "scenario_version",
+    "trigger",
+    "financials",
+    "regulations",
+    "news_sources",
+    "answer_key"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "scenario_version": {
+      "const": 2
+    },
+    "trigger": {
+      "type": "string"
+    },
+    "financials": {
+      "type": "object"
+    },
+    "regulations": {
+      "type": "object"
+    },
+    "news_sources": {
+      "type": "array"
+    },
+    "answer_key": {
+      "type": "object",
+      "required": [
+        "news_label",
+        "ideal_actions",
+        "acceptable_actions",
+        "forbidden_actions",
+        "target_amount_range",
+        "needs_review"
+      ]
+    }
+  }
+}

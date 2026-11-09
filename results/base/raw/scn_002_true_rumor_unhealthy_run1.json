@@ -1,0 +1,11 @@
+{
+  "scenario_id": "scn_002",
+  "stdout": {
+    "news_label": "credible",
+    "action": "draw_central_bank_facility",
+    "amount": 9000000,
+    "confidence": 0.95,
+    "rationale": "Verified withdrawal spike of 9M exceeds available liquidity (800k) and interbank borrowing limit (6M). Central bank facility is the only source that can fully cover the immediate liquidity gap. Drawing 9M covers the confirmed 24-hour demand."
+  },
+  "stderr": ""
+}

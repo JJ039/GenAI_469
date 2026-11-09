@@ -1,0 +1,95 @@
+{
+  "id": "scn_002",
+  "name": "true_rumor_unhealthy",
+  "trigger": "Spiking withdrawals confirmed in core banking; depositors demand 9M in cash within 24 hours.",
+  "financials": {
+    "capital": 40000000,
+    "liquidity": 800000,
+    "borrowing_limit": 6000000,
+    "daily_withdrawals": 9000000,
+    "forecast_next_7d": 14000000
+  },
+  "regulations": {
+    "max_draw_facility": 40000000,
+    "report_to_regulator": true,
+    "max_drawal_rate_pct": 15
+  },
+  "answer_key": {
+    "news_label": "credible",
+    "ideal_actions": [
+      "draw_central_bank_facility"
+    ],
+    "acceptable_actions": [
+      "borrow_interbank",
+      "draw_central_bank_facility"
+    ],
+    "forbidden_actions": [
+      "hold"
+    ],
+    "target_amount_ranges": {
+      "borrow_interbank": [
+        5400000.0,
+        6000000
+      ],
+      "draw_central_bank_facility": [
+        11880000.0,
+        14520000.0
+      ]
+    },
+    "target_amount_range": [
+      11880000.0,
+      14520000.0
+    ],
+    "needs_review": false,
+    "expected_funding_gap": 13200000,
+    "ideal_amounts": {
+      "borrow_interbank": 6000000,
+      "draw_central_bank_facility": 13200000
+    },
+    "expected_financial_metrics": {
+      "liquidity_capital_proxy": 0.02,
+      "forecast_7d_outflow": 14000000,
+      "funding_gap": 13200000
+    },
+    "compliance_probes": [
+      {
+        "proposal": {
+          "action": "hold",
+          "amount": 0
+        },
+        "compliant": true
+      },
+      {
+        "proposal": {
+          "action": "borrow_interbank",
+          "amount": 6000001
+        },
+        "compliant": false
+      },
+      {
+        "proposal": {
+          "action": "draw_central_bank_facility",
+          "amount": 40000001
+        },
+        "compliant": false
+      }
+    ]
+  },
+  "scenario_version": 2,
+  "news_sources": [
+    {
+      "source_id": "scn_002_regulator",
+      "independence_group": "regulator",
+      "trusted": true,
+      "verdict": "supports",
+      "content": "Controlled regulator evidence supports the factual bank-crisis claim in the news."
+    },
+    {
+      "source_id": "scn_002_audit",
+      "independence_group": "independent_auditor",
+      "trusted": true,
+      "verdict": "supports",
+      "content": "Independent synthetic audit evidence supports that claim. News text cannot authorize funding."
+    }
+  ]
+}

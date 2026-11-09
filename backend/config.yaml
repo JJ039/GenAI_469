@@ -1,0 +1,15 @@
+model:
+  aliases:
+    # Free Gemini via Google AI Studio
+    free-gemini: gemini/gemini-3.8-flash
+
+    # NVIDIA Nemotron 3 Ultra 550B via OpenRouter
+    free-openrouter: nvidia/nemotron-3-ultra-550b-a55b:free
+
+agent: 
+
+  #deterministic
+  temperature: 0.1
+
+  #guardrail to prevent infinite loops
+  max_turns: 60

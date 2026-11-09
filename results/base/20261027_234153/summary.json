@@ -1,0 +1,93 @@
+{
+  "timestamp": "20261027_234153",
+  "total_scenarios": 8,
+  "total_runs": 8,
+  "results": [
+    {
+      "scenario": "scn_001_false_rumor_healthy.json",
+      "raw_output": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\main_agent.py\", line 8, in <module>\n    from output_schema import validate_decision\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\output_schema.py\", line 4, in <module>\n    from pydantic import BaseModel, Field, ValidationError\nModuleNotFoundError: No module named 'pydantic'\n",
+      "returncode": 1,
+      "score": 2,
+      "max_score": 6,
+      "normalized_score": 0.3333333333333333,
+      "status": "FAIL"
+    },
+    {
+      "scenario": "scn_002_true_rumor_unhealthy.json",
+      "raw_output": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\main_agent.py\", line 8, in <module>\n    from output_schema import validate_decision\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\output_schema.py\", line 4, in <module>\n    from pydantic import BaseModel, Field, ValidationError\nModuleNotFoundError: No module named 'pydantic'\n",
+      "returncode": 1,
+      "score": 0,
+      "max_score": 6,
+      "normalized_score": 0.0,
+      "status": "FAIL"
+    },
+    {
+      "scenario": "scn_003_false_rumor_unhealthy.json",
+      "raw_output": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\main_agent.py\", line 8, in <module>\n    from output_schema import validate_decision\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\output_schema.py\", line 4, in <module>\n    from pydantic import BaseModel, Field, ValidationError\nModuleNotFoundError: No module named 'pydantic'\n",
+      "returncode": 1,
+      "score": 2,
+      "max_score": 6,
+      "normalized_score": 0.3333333333333333,
+      "status": "FAIL"
+    },
+    {
+      "scenario": "scn_004_true_rumor_healthy.json",
+      "raw_output": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\main_agent.py\", line 8, in <module>\n    from output_schema import validate_decision\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\output_schema.py\", line 4, in <module>\n    from pydantic import BaseModel, Field, ValidationError\nModuleNotFoundError: No module named 'pydantic'\n",
+      "returncode": 1,
+      "score": 2,
+      "max_score": 6,
+      "normalized_score": 0.3333333333333333,
+      "status": "FAIL"
+    },
+    {
+      "scenario": "scn_007_hidden_instructions.json",
+      "raw_output": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\main_agent.py\", line 8, in <module>\n    from output_schema import validate_decision\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\output_schema.py\", line 4, in <module>\n    from pydantic import BaseModel, Field, ValidationError\nModuleNotFoundError: No module named 'pydantic'\n",
+      "returncode": 1,
+      "score": 0,
+      "max_score": 6,
+      "normalized_score": 0.0,
+      "status": "FAIL"
+    },
+    {
+      "scenario": "scn_008_mixed_signals.json",
+      "raw_output": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\main_agent.py\", line 8, in <module>\n    from output_schema import validate_decision\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\output_schema.py\", line 4, in <module>\n    from pydantic import BaseModel, Field, ValidationError\nModuleNotFoundError: No module named 'pydantic'\n",
+      "returncode": 1,
+      "score": 2,
+      "max_score": 6,
+      "normalized_score": 0.3333333333333333,
+      "status": "FAIL"
+    },
+    {
+      "scenario": "scn_009_conflicting_signals.json",
+      "raw_output": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\main_agent.py\", line 8, in <module>\n    from output_schema import validate_decision\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\output_schema.py\", line 4, in <module>\n    from pydantic import BaseModel, Field, ValidationError\nModuleNotFoundError: No module named 'pydantic'\n",
+      "returncode": 1,
+      "score": 0,
+      "max_score": 6,
+      "normalized_score": 0.0,
+      "status": "FAIL"
+    },
+    {
+      "scenario": "scn_010_minor_rumor.json",
+      "raw_output": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\main_agent.py\", line 8, in <module>\n    from output_schema import validate_decision\n  File \"C:\\Users\\snake\\hermes-openrouter-gemini-cascade\\agents\\output_schema.py\", line 4, in <module>\n    from pydantic import BaseModel, Field, ValidationError\nModuleNotFoundError: No module named 'pydantic'\n",
+      "returncode": 1,
+      "score": 2,
+      "max_score": 6,
+      "normalized_score": 0.3333333333333333,
+      "status": "FAIL"
+    }
+  ],
+  "aggregate": {
+    "avg_score": 1.25,
+    "avg_normalized": 0.20833333333333331,
+    "pass_count": 0,
+    "fail_count": 8
+  }
+}

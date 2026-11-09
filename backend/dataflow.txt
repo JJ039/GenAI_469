@@ -1,0 +1,19 @@
+BASELINE (independent)
+  Raw scenario evidence -> one LLM decision -> shared evaluator
+
+SPECIALIST REPORT LINE
+  News Verification -> controlled evidence verdict
+  Financial Analyst -> financial metrics and funding recommendation
+  Risk Manager <- Financial Analyst report and scenario candidate actions
+  Compliance Officer <- Financial Analyst recommendation, not a final team decision
+  Treasury Operations -> awaits explicit host-issued approval
+
+There is no combined decision or automatic authorization in this checkout.
+A teammate owns the future decision-stage integration. Reports, telemetry and
+agent diagnostics remain available. The baseline is scored; the specialist line
+has null final-decision metrics and is excluded from paired score comparisons.
+
+News credibility is independent of liquidity. Source records are controlled fixtures.
+Funding limits and numeric checks remain in deterministic tools.
+Treasury standalone simulation tools retain approval binding and replay protection.
+No banking APIs or external financial execution are connected.
