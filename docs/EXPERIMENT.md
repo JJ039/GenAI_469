@@ -13,6 +13,14 @@ combined-decision and approval stage; that implementation is deliberately absent
 4. Compliance Officer checks that recommendation, without selecting a team strategy.
 5. Treasury Operations returns awaiting_authorization. No dashboard approval is issued.
 
+News Verification is authoritative for the deterministic evidence verdict. Its
+report includes source IDs, independent supporting/refuting group counts, conflict
+status, `trigger_is_untrusted`, and injection fields:
+`untrusted_content_detected`, `instruction_like_content_present`, and
+`instruction_content_ignored`. Instruction-like phrases are reported but never
+treated as evidence or execution instructions. The optional LLM interpretation is
+summary text only and cannot change the verdict or authorize an action.
+
 `run_system(..., system="multi_agent")` retains its existing entry-point name for
 compatibility. Its result has `decision_status="awaiting_integration"`, agent reports,
 trace and usage telemetry. It has no decision or proposed_decision. Final outcome
@@ -43,12 +51,21 @@ explicitly unmodelled. No real funds move. The standalone Treasury ledger still
 supports host-issued human approvals, exact binding and idempotent simulation,
 but it is not invoked by the report pipeline.
 
+Financial Analyst rationale validation treats `7-day horizon`, `7-day period`,
+`7-day window`, `7-day time frame`, and `over 7 days` as time metadata. These
+phrases cannot be misclassified as monetary claims for a nearby metric such as
+`funding_gap`.
+
 ## Teammate handoff
 
 Use the agent reports and the financial recommendation as integration inputs.
 Keep the baseline independent. Add the final proposal, Compliance review of that
 proposal, explicit host approval and Treasury invocation in the teammate-owned
 stage before re-enabling final secondary scores or decision-level ablation.
+The coordinator should use the News Verification `report` as the source of truth
+for news evidence and preserve its untrusted-content flags in the final trace.
+It should not infer evidence from the raw trigger or use the optional news
+interpretation as authorization.
 An independent human or optional LLM judge can assess rationale quality; it should
 not replace the deterministic answer key or serve as the decision-making agent.
 

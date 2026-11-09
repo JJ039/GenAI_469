@@ -73,6 +73,10 @@ host-generated tool observations, not the answer key or an LLM judge.
   before comparison. Numeric tolerances are 0.5% relative and 0.0001 absolute.
 - Numeric assertions in the rationale are checked using metric aliases and local
   clauses, so a correct capital figure attributed to liquidity can be detected.
+- Day-based expressions such as `7-day horizon`, `7-day period`, `7-day window`,
+  `7-day time frame`, and `over 7 days` are treated as forecast-horizon metadata,
+  not monetary claims. This prevents a time number from being associated with a
+  nearby metric such as `funding_gap`.
 - Supported comparisons such as a runway under one day are checked as inequalities.
 - Calling the liquidity/capital proxy regulatory LCR is flagged; an explicit
   statement that it is not regulatory LCR is allowed.
@@ -88,7 +92,8 @@ This detector is deliberately limited: citation checks and numeric comparisons
 are deterministic; prose-to-metric association is heuristic. It does not establish
 all causal, semantic or regulatory claims, and may flag legitimate rounding or
 unusual phrasing. Unsupported citations are grounding failures, not automatically
-proof that the underlying figure is false. Human review is still necessary.
+proof that the underlying figure is false. Horizon handling is covered by a
+regression test based on a real model rationale. Human review is still necessary.
 
 ## Evidence of the enhancement
 
