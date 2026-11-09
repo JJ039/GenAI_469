@@ -6,7 +6,7 @@ real banking regulations.
 
 | Module / entry point | Deterministic tools | Output |
 | --- | --- | --- |
-| `news_verification.run_news_verification` | `retrieve_news`, `cross_check_sources`, `verify_claim` | Source counts and credible / false / unverified verdict |
+| `news_verification.run_news_verification` | `retrieve_news`, `cross_check_sources`, `verify_claim` | Source counts, injection flags, and credible / false / unverified verdict |
 | `financial_analyst.run_financial_analyst` | Existing financial tools | Metrics and bounded funding recommendation |
 | `risk_manager.run_risk_manager` | `calculate_risk_score`, `simulate_action_outcome` | Current risk proxy and outcomes for three candidate actions |
 | `compliance_officer.run_compliance_officer` | `retrieve_regulations`, `check_compliance` | Funding limit checks, violations, reporting requirement |
@@ -57,7 +57,12 @@ Two independent trusted groups supporting the claim produce `credible`; two
 refuting it produce `false`. Any conflicting trusted evidence produces
 `unverified`. Repeated sources from one group do not count as corroboration.
 Trust, provenance and verdict are controlled fixture metadata, not values inferred
-from article text or supplied by an LLM. Live retrieval is not implemented.
+from article text or supplied by an LLM. Live retrieval is not implemented. The
+report also marks all news as untrusted content and detects a small set of
+instruction-like phrases in the trigger or source content. These phrases are
+reported for injection analysis and are never used as evidence or instructions.
+Source IDs must be unique, source groups must be nonempty, and `trusted` must be
+a boolean so malformed fixtures fail before evaluation.
 The baseline receives these same records when present. Answer keys remain local.
 
 ## Treasury approvals
