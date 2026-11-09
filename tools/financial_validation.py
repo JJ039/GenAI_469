@@ -139,9 +139,24 @@ def check_financial_hallucinations(decision, claims, observations):
         unit = {'k':'thousand','m':'million','b':'billion','bn':'billion','%':'percent','percent':'percent','percentage':'percent','day':'days'}.get(suffix, suffix or 'amount')
         if suffix in ('day','days'):
             unit = 'days'
-        # A stated forecast horizon is metadata, not the cash outflow beside it.
+        # A stated forecast horizon is metadata, not the nearby financial metric.
         after = rationale[match.end():match.end()+20].lower()
-        if re.match(r'\s*-?\s*day', after) and ('forecast' in context or 'outflow' in context):
+        horizon_after = re.match(
+            r'\s*-?\s*days?\s+(?:horizon|period|window|time\s+frame|timeframe)\b',
+            after,
+        )
+        horizon_before = re.search(
+            r'\b(?:over|across|within|for)\s+(?:the\s+)?$',
+            prefix,
+        )
+        day_phrase = suffix in ('day', 'days') or re.match(
+            r'\s*-\s*days?\b', after
+        )
+        if day_phrase and (
+            horizon_after or horizon_before or
+            (re.match(r'\s*-?\s*day', after) and
+             ('forecast' in context or 'outflow' in context))
+        ):
             metric, unit = 'forecast_horizon_days', 'days'
         if 'confidence' in context and unit == 'percent' and metric is None:
             if not matches(value/100, decision['confidence']):
