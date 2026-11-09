@@ -2,7 +2,7 @@
 from copy import deepcopy
 import time
 from backend.llm_client import LLMClient
-from backend.telemetry import TOOL_LOG
+from backend.telemetry import TOOL_AGENT, TOOL_LOG
 from backend.agents.main_agent import build_prompt, scenario_inputs
 from backend.agents.output_schema import HermesBankDecision, parse_json_object
 from backend.agents.news_verification import run_news_verification
@@ -55,6 +55,7 @@ class RunContext:
 
     def agent(self, name, function, scenario, **kwargs):
         self.role = name
+        TOOL_AGENT.set(name)
         output = function(scenario, llm_runner=self.ask, **kwargs)
         call = self.calls[-1] if self.calls and self.calls[-1]['role'] == name else {}
         self.agent_results[name] = {'status': 'completed', 'output': deepcopy(output)}
@@ -86,10 +87,12 @@ def run_system(scenario, system='baseline', client=None, callback=None):
               'execution_authorized': False, 'treasury': {'executed': False}}
     result['agents'] = ctx.agent_results
     start = time.monotonic()
-    token = TOOL_LOG.set(ctx.tools)
+    log_token = TOOL_LOG.set(ctx.tools)
+    agent_token = TOOL_AGENT.set(ctx.role)
     try:
         if system == 'baseline':
             ctx.role = 'baseline'
+            TOOL_AGENT.set('baseline')
             raw = ctx.ask(build_prompt(inputs))
             result['proposed_decision'] = deepcopy(raw)
             result['decision'] = HermesBankDecision(**raw).model_dump()
@@ -98,6 +101,7 @@ def run_system(scenario, system='baseline', client=None, callback=None):
             reports = {}
             reports['news_verification'] = ctx.agent('news_verification', run_news_verification, inputs)
             # Missing financial data is an explicit report, not fabricated metrics.
+            TOOL_AGENT.set('orchestrator')
             try:
                 get_bank_financials(inputs)
                 sufficient = True
@@ -128,7 +132,8 @@ def run_system(scenario, system='baseline', client=None, callback=None):
             result.setdefault('proposed_decision', deepcopy(ctx.last_object))
         ctx.emit(ctx.role, {'status': 'error', 'error': str(exc)})
     finally:
-        TOOL_LOG.reset(token)
+        TOOL_AGENT.reset(agent_token)
+        TOOL_LOG.reset(log_token)
     if system != 'baseline':
         result['decision_status'] = 'awaiting_integration'
     result['trace'] = ctx.trace

@@ -18,6 +18,24 @@ def mean(values):
     return statistics.mean(values) if values else None
 
 
+def aggregate_agent_telemetry(runs):
+    names = sorted({name for run in runs for name in run['metrics'].get('agent_telemetry', {})})
+    summary = {}
+    for name in names:
+        fields = ('llm_calls', 'tool_calls', 'valid_tool_calls', 'invalid_tool_calls',
+                  'tool_validity', 'input_tokens', 'output_tokens', 'cost_usd',
+                  'llm_elapsed_seconds', 'tool_elapsed_seconds')
+        summary[name] = {
+            field: mean([run['metrics'].get('agent_telemetry', {}).get(name, {}).get(field)
+                         for run in runs])
+            for field in fields
+        }
+        summary[name]['observations'] = len([
+            run for run in runs if name in run['metrics'].get('agent_telemetry', {})
+        ])
+    return summary
+
+
 def aggregate(records, repeats, seed=42):
     grouped = defaultdict(list)
     for record in records:
@@ -59,6 +77,20 @@ def aggregate(records, repeats, seed=42):
             'financial': {key: mean([d.get('financial', {}).get(key) for d in diagnostics]) for key in financial_fields},
             **{key: mean([d.get(key) for d in diagnostics]) for key in ('risk_ranking_monotonic', 'compliance_probe_catch_rate', 'compliance_probe_false_block_rate', 'treasury_authorized_only')},
             'note': 'Tool/fixture diagnostics, not independent LLM reasoning scores.'}
+        row['agent_telemetry'] = aggregate_agent_telemetry(runs)
+        allowlists = [run['metrics'].get('tool_allowlist', {}) for run in runs]
+        row['tool_allowlist'] = {
+            'valid_rate': mean([int(item.get('valid')) for item in allowlists if 'valid' in item]),
+            'violation_count': sum(item.get('violation_count', 0) for item in allowlists),
+            'observations': len([item for item in allowlists if item]),
+        }
+        workflows = [run['metrics'].get('workflow', {}) for run in runs]
+        applicable_workflows = [item for item in workflows if item.get('applicable')]
+        row['workflow'] = {
+            'valid_rate': mean([int(item.get('valid')) for item in applicable_workflows]),
+            'violation_count': sum(item.get('violation_count', 0) for item in applicable_workflows),
+            'observations': len(applicable_workflows),
+        }
         summary[system] = row
     comparisons = {}
     if 'baseline' in clusters:

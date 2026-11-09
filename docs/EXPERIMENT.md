@@ -45,6 +45,19 @@ remain in reliability denominators. Missing cost/token information remains null.
 The baseline's repeated-run consistency and pass^k still work. Token and latency
 comparisons are operational diagnostics, not evidence of secondary decision quality.
 
+Tool responsibility is evaluated independently of coordinator integration.
+Telemetry attributes each host-tool call to the active agent and compares it
+with that agent's allowlist. Reports include disallowed tools, violation counts,
+and a run-level validity flag. Nested host calls required by deterministic
+report calculations are included in the responsible agent's allowlist; these
+diagnostics measure workflow boundaries and do not assign a final decision score.
+The same evaluation validates the report-only workflow contract:
+News Verification -> Financial Analyst -> Risk Manager -> Compliance Officer
+-> Treasury Operations. It reports missing or duplicate stages, ordering
+violations, whether Risk received the Financial Analyst recommendation, whether
+Compliance checked that recommendation, and whether Treasury remained pending
+host authorization.
+
 News sources are synthetic records with designer-labelled provenance and stance,
 not live retrieval. Risk is a cash coverage proxy. `max_drawal_rate_pct` remains
 explicitly unmodelled. No real funds move. The standalone Treasury ledger still

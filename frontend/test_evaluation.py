@@ -15,7 +15,7 @@ from backend.agents.output_schema import HermesBankDecision
 from backend.llm_client import LLMClient
 from backend.mock_client import MockClient
 from backend.systems import run_system
-from backend.evaluation import evaluate
+from backend.evaluation import evaluate, evaluate_tool_allowlist, evaluate_workflow
 from backend.reporting import aggregate
 from backend.scenarios.validation import load_scenarios, validate_scenario
 from backend.scripts.run_evaluation import main
@@ -92,6 +92,50 @@ class EvaluationTests(unittest.TestCase):
         self.assertFalse(result['execution_authorized'])
         self.assertFalse(any(t['tool'].endswith('.approve') for t in result['telemetry']['tools']))
         self.assertEqual(result['telemetry']['llm_calls'],6)
+        telemetry = result['metrics']['agent_telemetry']
+        self.assertGreaterEqual(telemetry['news_verification']['tool_calls'],3)
+        self.assertEqual(telemetry['news_verification']['valid_tool_calls'],
+                         telemetry['news_verification']['tool_calls'])
+        self.assertGreaterEqual(telemetry['financial_analyst']['tool_calls'],3)
+        self.assertEqual(telemetry['financial_analyst']['invalid_tool_calls'],0)
+        self.assertNotIn('treasury_operations', telemetry)
+        self.assertTrue(result['metrics']['tool_allowlist']['valid'])
+        self.assertEqual(result['metrics']['tool_allowlist']['violation_count'], 0)
+        workflow = result['metrics']['workflow']
+        self.assertTrue(workflow['valid'])
+        self.assertEqual(workflow['actual_stages'], [
+            'news_verification', 'financial_analyst', 'risk_manager',
+            'compliance_officer', 'treasury_operations'])
+        self.assertTrue(workflow['handoffs']['risk_received_financial_recommendation'])
+        self.assertTrue(workflow['handoffs']['compliance_received_financial_recommendation'])
+        self.assertTrue(workflow['handoffs']['treasury_waited_for_authorization'])
+
+    def test_workflow_reports_missing_and_out_of_order_stages(self):
+        result=run_system(self.scenarios[0], 'multi_agent', MockClient())
+        result['trace'] = list(reversed(result['trace']))
+        workflow=evaluate_workflow(result)
+        self.assertFalse(workflow['valid'])
+        self.assertEqual(workflow['violation_count'], 1)
+        self.assertEqual(workflow['violations'][0]['kind'], 'stage_order')
+
+    def test_workflow_is_not_applicable_to_baseline(self):
+        result=run_system(self.scenarios[0], 'baseline', MockClient())
+        workflow=result['metrics']['workflow']
+        self.assertFalse(workflow['applicable'])
+        self.assertIsNone(workflow['valid'])
+
+    def test_tool_allowlist_reports_disallowed_agent_tool(self):
+        result=run_system(self.scenarios[0], 'multi_agent', MockClient())
+        result['telemetry']['tools'].append({
+            'agent': 'news_verification',
+            'tool': 'tools.compliance_tools.check_compliance',
+            'valid': True,
+        })
+        allowlist=evaluate_tool_allowlist(result)
+        self.assertFalse(allowlist['valid'])
+        self.assertEqual(allowlist['violation_count'], 1)
+        self.assertEqual(allowlist['violations'][0]['agent'], 'news_verification')
+        self.assertEqual(allowlist['violations'][0]['tool'], 'tools.compliance_tools.check_compliance')
 
     def test_pending_reports_do_not_become_failed_decisions_or_paired_scores(self):
         records=[]
