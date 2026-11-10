@@ -6,3 +6,5 @@ nul
 __pycache__/
 *.pyc
 .env
+backend/regulatory_corpus/pdfs/*.pdf
+backend/regulatory_corpus/chroma_db/
