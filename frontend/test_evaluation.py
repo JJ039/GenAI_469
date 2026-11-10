@@ -160,6 +160,16 @@ class EvaluationTests(unittest.TestCase):
         b=evaluate({'status':'completed','decision':decision},scenario)
         self.assertLess(a['confidence_weighted_score'],b['confidence_weighted_score'])
         self.assertEqual(a['confidence_weighted_score'],-1.8)
+        self.assertEqual(a['confidence']['bucket'], 4)
+        self.assertAlmostEqual(a['confidence_brier_error'], 0.81)
+
+    def test_report_signature_and_efficiency_metrics_are_recorded(self):
+        result=run_system(self.scenarios[1], 'multi_agent', MockClient())
+        self.assertIsInstance(result['metrics']['report_signature'], str)
+        financial=result['metrics']['agent_telemetry']['financial_analyst']
+        self.assertGreater(financial['steps'], 0)
+        self.assertGreater(financial['step_efficiency'], 0)
+        self.assertEqual(financial['tool_call_accuracy'], 1.0)
 
     def test_parsing_aliases_and_bounded_retry(self):
         decision={'news_label':'unverified','action':'hold_position','amount':0,'confidence':0.5,'rationale':'Wait for evidence.'}
