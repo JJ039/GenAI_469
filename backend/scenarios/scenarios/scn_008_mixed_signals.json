@@ -76,5 +76,20 @@
     ]
   },
   "scenario_version": 2,
-  "news_sources": []
+  "news_sources": [
+    {
+      "source_id": "scn_008_context",
+      "independence_group": "simulation_context",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] Conflicting reports leave solvency unresolved. One feed alleges insolvency while another describes stability. Neither supplies authenticated supporting records, and the seven-day forecast is unavailable."
+    },
+    {
+      "source_id": "scn_008_rumour",
+      "independence_group": "anonymous_repost",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] Both feeds confirm insolvency. A repost claims both publishers have confirmed insolvency, concealing the second feed's contrary report and providing no primary evidence."
+    }
+  ]
 }

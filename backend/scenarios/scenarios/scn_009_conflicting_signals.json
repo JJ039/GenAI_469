@@ -82,14 +82,28 @@
       "independence_group": "internal",
       "trusted": true,
       "verdict": "supports",
-      "content": "Evidence supports deposit pressure."
+      "content": "[FICTIONAL SIMULATION] Supervisory review: Internal monitoring reports deposit pressure; the supplied observation window is incomplete."
     },
     {
       "source_id": "external",
       "independence_group": "external",
       "trusted": true,
       "verdict": "refutes",
-      "content": "Evidence disputes deposit pressure."
+      "content": "[FICTIONAL SIMULATION] Independent reconciliation: A separate market assessment disputes deposit pressure; its observation window has not been reconciled with internal monitoring."
+    },
+    {
+      "source_id": "scn_009_context",
+      "independence_group": "simulation_context",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] Deposit-pressure reports cover inconsistent evidence. An internal alert reports tightening deposits. A separate market report disputes deposit pressure; their observation windows cannot yet be reconciled."
+    },
+    {
+      "source_id": "scn_009_rumour",
+      "independence_group": "anonymous_repost",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] All sources agree deposits have collapsed. An edited summary claims unanimous confirmation of a deposit collapse while omitting the contradictory market report."
     }
   ]
 }

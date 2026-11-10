@@ -71,5 +71,20 @@
     ]
   },
   "scenario_version": 2,
-  "news_sources": []
+  "news_sources": [
+    {
+      "source_id": "scn_010_context",
+      "independence_group": "simulation_context",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] Minor rumour has no corroborating records. A minor distress rumour is circulating. No authenticated current disclosure or independent records establish its claim."
+    },
+    {
+      "source_id": "scn_010_rumour",
+      "independence_group": "anonymous_repost",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] BankCo will close every branch tomorrow. An anonymous account predicts a complete shutdown tomorrow without a dated notice, named source or corroborating record."
+    }
+  ]
 }
