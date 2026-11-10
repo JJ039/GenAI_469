@@ -45,6 +45,27 @@ remain in reliability denominators. Missing cost/token information remains null.
 The baseline's repeated-run consistency and pass^k still work. Token and latency
 comparisons are operational diagnostics, not evidence of secondary decision quality.
 
+The scorecard maps to the experiment outputs as follows:
+
+- **Task success/correctness:** the baseline uses the answer-key rubric; the
+  report-only line reports deterministic specialist diagnostics and does not
+  receive a fabricated final-decision score.
+- **Tool-call accuracy:** per-agent tool validity and allowlist accuracy, with
+  invalid financial tool calls and recovery recorded separately.
+- **Step efficiency:** Financial Analyst ReAct steps, tool calls, recovery, and
+  step efficiency are reported per agent.
+- **Cost and latency:** input/output tokens, cost, wall-clock time, per-agent
+  latency, and tool latency are recorded when the provider supplies usage.
+- **Confidence:** the existing weighted score remains `+confidence` for a
+  correct baseline decision and `-2*confidence` otherwise; Brier error and
+  confidence buckets are also reported so calibration is not confused with
+  reward shaping. Specialist interpretation confidence is retained as a
+  separate diagnostic.
+- **Robustness/reliability:** five-run batches report action consistency and
+  full-decision consistency for baseline, plus canonical full-report
+  consistency for the report-only specialist line. Failures remain in the
+  denominators.
+
 Tool responsibility is evaluated independently of coordinator integration.
 Telemetry attributes each host-tool call to the active agent and compares it
 with that agent's allowlist. Reports include disallowed tools, violation counts,
