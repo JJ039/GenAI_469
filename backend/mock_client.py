@@ -13,7 +13,17 @@ class MockClient:
     transport = 'mock'
 
     def complete(self, prompt):
-        if 'FINANCIAL_REACT_STATE:' in prompt:
+        if 'SPECIALIST_AGENT_STATE:' in prompt:
+            state = _object_after(prompt, 'SPECIALIST_AGENT_STATE:')
+            required = state['context']['required_tools']
+            observations = [h['observation'] for h in state['history'] if h.get('observation', {}).get('ok')]
+            missing = [name for name in required if not any(o['tool'] == name for o in observations)]
+            if missing:
+                output = {'type': 'tool_call', 'tool': missing[0], 'arguments': {}}
+            else:
+                output = {'type': 'final', 'summary': 'Mock evidence interpretation; not LLM performance.',
+                          'confidence': 0.5, 'observation_ids': [o['id'] for o in observations]}
+        elif 'FINANCIAL_REACT_STATE:' in prompt:
             state = _object_after(prompt, 'FINANCIAL_REACT_STATE:')
             observations = [h['observation'] for h in state['history'] if h.get('observation', {}).get('ok')]
             financials = next((o for o in observations if o.get('tool') == 'get_bank_financials'), None)

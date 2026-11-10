@@ -91,14 +91,15 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(result['treasury']['status'],'awaiting_authorization')
         self.assertFalse(result['execution_authorized'])
         self.assertFalse(any(t['tool'].endswith('.approve') for t in result['telemetry']['tools']))
-        self.assertEqual(result['telemetry']['llm_calls'],6)
+        self.assertEqual(result['telemetry']['llm_calls'],10)
         telemetry = result['metrics']['agent_telemetry']
         self.assertGreaterEqual(telemetry['news_verification']['tool_calls'],3)
         self.assertEqual(telemetry['news_verification']['valid_tool_calls'],
                          telemetry['news_verification']['tool_calls'])
         self.assertGreaterEqual(telemetry['financial_analyst']['tool_calls'],3)
         self.assertEqual(telemetry['financial_analyst']['invalid_tool_calls'],0)
-        self.assertNotIn('treasury_operations', telemetry)
+        self.assertIn('treasury_operations', telemetry)
+        self.assertFalse(result['treasury']['execution_plan']['execution_authorized'])
         self.assertTrue(result['metrics']['tool_allowlist']['valid'])
         self.assertEqual(result['metrics']['tool_allowlist']['violation_count'], 0)
         workflow = result['metrics']['workflow']

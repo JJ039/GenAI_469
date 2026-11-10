@@ -121,7 +121,8 @@ def run_system(scenario, system='baseline', client=None, callback=None):
             reports['compliance_officer'] = ctx.agent(
                 'compliance_officer', run_compliance_officer, inputs, proposals=proposals)
             reports['treasury_operations'] = ctx.agent(
-                'treasury_operations', run_treasury_operations, inputs)
+                'treasury_operations', run_treasury_operations, inputs,
+                proposal=proposals[0] if proposals else None)
             result['treasury'] = reports['treasury_operations']
             result['agents'] = {name: {'status': 'completed', 'output': output} for name, output in reports.items()}
             result['note'] = 'Specialist reports only. Combined decision and authorization await teammate integration.'

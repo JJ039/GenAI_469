@@ -64,7 +64,10 @@ def run_financial_analyst(scenario, llm_runner=None, *, max_steps=6, max_tool_ca
     for step in range(1,max_steps+1):
         steps = step
         state = {'step':step,'steps_remaining':max_steps-step,'tool_calls_remaining':max(0,max_tool_calls-requested),
-                 'untrusted_trigger':scenario.get('trigger',''), 'tools':TOOL_CATALOG, 'history':history}
+                 'untrusted_trigger':scenario.get('trigger',''), 'tools':TOOL_CATALOG, 'history':history,
+                 'scratchpad':{'successful_observation_ids':[o['id'] for o in observations if o['ok']],
+                               'report_observed':report is not None,
+                               'last_validation':deepcopy(validation)}}
         prompt = SYSTEM_RULES + '\nFINANCIAL_REACT_STATE:\n' + json.dumps(state,allow_nan=False)
         try:
             response = parse_json_object(llm_runner(prompt))
@@ -111,7 +114,11 @@ def run_financial_analyst(scenario, llm_runner=None, *, max_steps=6, max_tool_ca
                               'flags':[{'kind':'invalid_recommendation','message':str(exc)}]}
                 reason = str(exc)
             history.append({'step':step,'action':deepcopy(response),'validation':deepcopy(validation)})
-            break
+            if validation['passed']:
+                break
+            # Topic 7 observe-and-correct: give the validator feedback to the model.
+            # All retries consume the same step budget; rejected outputs never escape.
+            continue
         history.append({'step':step,'observation':{'ok':False,'error':'Expected type tool_call or final'}})
     if report is None:
         # Host audit for the report/next agent only. Never pretend the model observed it.
@@ -127,6 +134,8 @@ def run_financial_analyst(scenario, llm_runner=None, *, max_steps=6, max_tool_ca
             'hallucination_check':validation,'react_trace':history,'reason':reason,
             'analysis_metrics':{'react_steps':steps,'requested_tool_calls':requested,'valid_tool_calls':valid,
                                 'invalid_tool_calls':requested-valid,'loop_completed':int(validation.get('not_evaluated') is not True),
+                                'tool_call_success_rate':valid/requested if requested else None,
+                                'budget_exhausted':not accepted and steps == max_steps,
                                 'recommendation_accepted':int(accepted),'recommendation_blocked':int(not accepted),
                                 'validation_flags':validation['flag_count'],
                                 'hallucination_checks_performed':int(not validation.get('not_evaluated',False)),

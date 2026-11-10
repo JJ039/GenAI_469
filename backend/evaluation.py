@@ -40,7 +40,11 @@ AGENT_TOOL_ALLOWLISTS = {
         'tools.compliance_tools.retrieve_regulations',
         'tools.compliance_tools.check_compliance',
     },
-    'treasury_operations': set(),
+    'treasury_operations': {
+        'tools.compliance_tools.retrieve_regulations',
+        'tools.compliance_tools.check_compliance',
+        'tools.financial_tools.get_bank_financials',
+    },
     'orchestrator': {'tools.financial_tools.get_bank_financials'},
 }
 

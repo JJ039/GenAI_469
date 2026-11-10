@@ -26,12 +26,47 @@ with open("backend/scenarios/scenarios/scn_002_true_rumor_unhealthy.json") as f:
 print(json.dumps(run_risk_manager(scenario), indent=2))
 ```
 
-News, risk and compliance accept `llm_runner(prompt)` returning a JSON object,
+Risk and compliance accept `llm_runner(prompt)` returning a JSON object,
 JSON string, or `(JSON string, model)` tuple. It must contain exactly `summary`
 (nonempty string) and `confidence` (finite number from 0 to 1). Interpretation is
 separate from the authoritative tool report. Omitting the runner computes the
 report without a model. The existing Financial Analyst retains its own
-recommendation schema. Treasury is deterministic and does not call an LLM.
+recommendation schema. News and Treasury preparation use the bounded tool protocol below.
+Treasury execution remains deterministic and does not call an LLM.
+
+## Topic 7 agentic upgrades
+
+News Verification and Treasury preparation now use a shared perceive/action/observation
+loop in `agent_loop.py`. Each has a role-specific allowlist, six model-turn and four
+tool-call defaults, validated JSON envelopes, a host-maintained observation scratchpad,
+and a complete `react_trace`. Invalid calls and final citations return feedback within
+the same budget. Final summaries cite successful observation IDs; exhausted loops
+return no accepted interpretation. These checks validate citations exist, not the
+semantic truth of every sentence in a summary.
+
+The protocol is application-level JSON tool calling, not provider-native function
+calling. It works with the existing text client without installing Groq, LangGraph
+or MCP. No notebook code or notebook instructions are executed.
+
+- News can retrieve all source documents, inspect an exact source ID, cross-check
+  independent groups, and request the authoritative verdict. It must cite retrieval
+  and verification observations before completing. The host verdict and source
+  metadata remain authoritative; this is not independent raw-document fact-checking
+  or live retrieval. Its report remains available when interpretation needs review.
+- Financial Analyst retains its numeric grounding and action bounds. Failed final
+  validation now feeds back into the next turn so the model can correct its answer.
+  A host scratchpad exposes successful observation IDs and the last validation.
+- Treasury can inspect the host candidate, read simulation rules and prepare an
+  execution plan. The dashboard supplies the Financial Analyst candidate for
+  preparation only; it is not a selected combined strategy. The plan records
+  compliance, missing requirements and reporting steps. No approval or execution
+  operation is available to the model. Existing host-approved ledger execution
+  retains exact binding, remaining-limit checks and idempotency.
+
+News and Treasury outputs include `analysis_metrics` for steps, requested/valid/invalid
+calls, call success rate, task completion and exhaustion. Treasury continues to
+return `awaiting_authorization`, even if preparation completes. The deterministic
+no-runner path remains available for all three roles.
 
 Compliance also accepts `proposals=[{"action": "borrow_interbank", "amount": 100}]`.
 Without proposals, it checks the same illustrative candidates as Risk Manager.
@@ -103,7 +138,7 @@ the process clears the ledger. A durable approval ledger for resumable simulatio
   operational meaning has not been defined.
 - An LLM summary cannot replace deterministic verdicts or grant execution approval.
   Summaries can still be wrong and should be evaluated separately.
-- The secondary line returns reports only, with no combined decision or score. Financial Analyst now uses up to six model turns for dynamic tool selection and validation; complete-run call counts therefore vary. News, Risk and Compliance each still use one call, plus the standalone baseline call. Treasury makes no model call and waits for authorization.
+- The secondary line returns reports only, with no combined decision or score. News, Financial Analyst and Treasury preparation each use up to six model turns by default. Risk and Compliance each use one call. Treasury execution uses no model call. Complete-run costs depend on the trajectories; the current mock fixture takes ten calls and is not evidence of LLM performance.
 
 Run checks from the repository root:
 

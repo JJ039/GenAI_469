@@ -68,9 +68,10 @@ class SpecialistTests(unittest.TestCase):
         def malicious_runner(prompt):
             self.assertNotIn('DO_NOT_SEND', prompt)
             return {'summary': 'Reviewed', 'confidence': 0.5, 'authorize_action': True}
-        with self.assertRaises(ValueError):
-            run_news_verification(self.scenario, malicious_runner)
-        result = run_news_verification(self.scenario, lambda p: ({'summary': 'Unverified', 'confidence': 0.5}, 'model'))
+        result = run_news_verification(self.scenario, malicious_runner)
+        self.assertEqual(result['status'], 'needs_review')
+        self.assertIsNone(result['interpretation'])
+        self.assertTrue(result['analysis_metrics']['budget_exhausted'])
         self.assertEqual(result['report']['news_label'], 'unverified')
 
     def test_compliance_enforces_limits_and_types(self):

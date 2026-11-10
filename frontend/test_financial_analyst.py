@@ -36,6 +36,7 @@ class Scripted:
 
 class FinancialAnalystTests(unittest.TestCase):
     def run_responses(self,*responses,**kwargs):
+        kwargs.setdefault('max_steps', len(responses))
         return run_financial_analyst(deepcopy(SCENARIO),Scripted(responses),**kwargs)
 
     def test_model_selects_tools_and_observes_results_before_final(self):
