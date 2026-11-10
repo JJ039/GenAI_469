@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 
 ROOT = Path(__file__).resolve().parent
 PDF_DIR = ROOT / "pdfs"
-load_dotenv(ROOT.parents[1] / ".env")
+load_dotenv(ROOT.parents[0] / ".env")
 
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "regulatory_corpus_v1")
 EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
@@ -56,6 +56,15 @@ def open_collection(*, rebuild=False):
             )
         if config.distance != models.Distance.COSINE:
             raise ValueError("The Qdrant collection must use cosine distance.")
+
+    # Qdrant Cloud requires payload indexes for fields used in filters.
+    for field_name in ("source_file", "source_type"):
+        client.create_payload_index(
+            collection_name=COLLECTION_NAME,
+            field_name=field_name,
+            field_schema=models.PayloadSchemaType.KEYWORD,
+            wait=True,
+        )
     return client, COLLECTION_NAME
 
 

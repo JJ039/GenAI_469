@@ -12,7 +12,7 @@ python -m venv frontend\venv
 .\frontend\venv\Scripts\python.exe -m pip install -r backend/regulatory_corpus/requirements.txt
 ```
 
-Create `.env` in the repository root (next to `.gitignore`) and add the endpoint and API key from Qdrant Cloud:
+Create `backend/.env` (next to the `regulatory_corpus/` directory) and add the endpoint and API key from Qdrant Cloud:
 
 ```env
 QDRANT_URL=https://YOUR-CLUSTER-ENDPOINT
