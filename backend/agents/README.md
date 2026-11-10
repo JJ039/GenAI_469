@@ -68,6 +68,51 @@ calls, call success rate, task completion and exhaustion. Treasury continues to
 return `awaiting_authorization`, even if preparation completes. The deterministic
 no-runner path remains available for all three roles.
 
+### Expanded tool choices for the existing scenarios
+
+Each agent's tool implementations, catalog and argument-validation dispatcher now
+live together under `tools/`:
+
+- `tools/news_tools.py`: seven news tools, `TOOL_CATALOG`, `execute_news_tool`.
+- `tools/financial_tools.py`: nine financial tools, `TOOL_CATALOG`, `execute_financial_tool`.
+- `tools/treasury_tools.py`: six preparation tools, `TOOL_CATALOG`,
+  `execute_treasury_tool`, plus the host-only approval ledger/execution helpers.
+
+Agent modules retain prompts, loop orchestration and output validation. Common
+compliance calculations remain in `tools/compliance_tools.py`. Numeric grounding
+(`check_financial_hallucinations`) lives in `tools/financial_tools.py` and is called
+automatically by the host after a candidate final response. It is not an optional
+model-selectable tool and does not consume the four-call model tool budget.
+All callers import diagnostics directly from their agent toolkit modules;
+the obsolete `scenario_diagnostics.py` compatibility file has been removed.
+
+There are now 22 model-selectable tools across these three roles: News 7,
+Financial Analyst 9, Treasury 6. The defaults remain six turns and four requested
+tool calls per agent. A toolkit is a menu, not a sequence to exhaust. Existing
+required evidence tools still apply; diagnostics are optional choices. No scenario
+inputs, difficulty, financial targets or answer keys were changed.
+
+| Role | Added tools | Use with existing cases |
+| --- | --- | --- |
+| News | `search_news(query)`, `inspect_source_provenance`, `inspect_evidence_conflicts` | Locate relevant text, expose repeated provenance groups, identify contradictory source IDs and unknown/untrusted records |
+| Financial Analyst | `compare_outflow_estimates`, `stress_test_outflows(multiplier)` | Explain missing-forecast fallback or disagreement with daily-rate estimates; inspect hypothetical cash demand at 1..3 times baseline |
+| Treasury | `inspect_funding_effect`, `inspect_reporting_requirements`, `inspect_execution_requirements` | Check the candidate's remaining cash gap, reporting flag/draft fields, and proposal/approval blockers |
+
+Diagnostics use host-bound fictional inputs. Literal search is not semantic retrieval;
+provenance and stance remain designer metadata. A stress test does not replace the
+baseline funding target or increase recommendation bounds. Treasury projections
+assume immediate funding and cannot see private ledger approvals or cumulative
+remaining capacity. Reports are never sent. Approval and execution stay host-only.
+
+Example successful paths within four calls (followed by a final response):
+
+- News: retrieve sources -> inspect provenance -> inspect conflicts -> verify claim.
+- Financial: compare forecasts -> stress test -> build financial report -> final.
+- Treasury: inspect funding effect -> inspect reporting -> inspect execution requirements -> prepare plan.
+
+These paths are exercised with scripted/mock responses. They demonstrate dispatch,
+budget and safety contracts, not improved live-model success rates.
+
 Compliance also accepts `proposals=[{"action": "borrow_interbank", "amount": 100}]`.
 Without proposals, it checks the same illustrative candidates as Risk Manager.
 These candidates are not a selected strategy or a combined decision.

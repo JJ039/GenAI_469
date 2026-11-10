@@ -64,7 +64,7 @@ that the model observed, and no recommendation is accepted in that case.
 
 ## 2. Financial hallucination detection
 
-`tools/financial_validation.py` checks the final response against successful,
+`tools/financial_tools.py` checks the final response against successful,
 host-generated tool observations, not the answer key or an LLM judge.
 
 - Every structured claim names a numeric metric, its value, unit and observation id.

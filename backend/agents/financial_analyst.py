@@ -3,9 +3,9 @@ from copy import deepcopy
 import json
 from math import isfinite
 from backend.agents.output_schema import parse_json_object
-from backend.agents.financial_react import TOOL_CATALOG, execute_financial_tool
+from tools.financial_tools import TOOL_CATALOG, execute_financial_tool
 from tools.financial_tools import build_financial_report
-from tools.financial_validation import check_financial_hallucinations
+from tools.financial_tools import check_financial_hallucinations
 
 SYSTEM_RULES = """You are the Financial Analyst in a synthetic bank crisis exercise.
 Use a bounded action -> tool observation -> next action loop. Choose financial tools dynamically.
