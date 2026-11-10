@@ -1,0 +1,23 @@
+{
+  "Banking Act 1970.pdf": {
+    "title": "Banking Act 1970 (selected provisions)",
+    "source_type": "legislation",
+    "url": "https://sso.agc.gov.sg/Act/BA1970",
+    "effective_date": "2026-11-10",
+    "context": "Selected provisions of Singapore's Banking Act 1970 concerning banks' liquid-asset requirements and MAS powers in bank distress. This PDF is an excerpt; consult the cited section and current official Act for the full legal context."
+  },
+  "Emergency-Liquidity-Assistance-Monograph.pdf": {
+    "title": "Emergency Liquidity Assistance in Singapore",
+    "source_type": "mas_ela_framework",
+    "url": "https://www.mas.gov.sg/monetary-policy/emergency-liquidity-assistance",
+    "effective_date": "2019-06-01",
+    "context": "MAS's framework for emergency liquidity assistance to financial institutions in extraordinary liquidity stress, including its legal basis, eligibility, modes of assistance, viability principles and collateral. ELA is distinct from routine MAS liquidity facilities."
+  },
+  "MAS Notice 649 effective 01 September 2026.pdf": {
+    "title": "MAS Notice 649 Minimum Liquid Assets and Liquidity Coverage Ratio",
+    "source_type": "mas_notice",
+    "url": "https://www.mas.gov.sg/-/media/mas-media-library/regulation/notices/ppd/notice-649/mas-notice-649-effective-01-september-2026.pdf",
+    "effective_date": "2026-09-01",
+    "context": "Current published MAS Notice 649 setting minimum liquid assets and liquidity coverage ratio requirements for banks in Singapore, including definitions, eligible liquid assets, calculation rules and reporting requirements."
+  }
+}

@@ -9,7 +9,7 @@ real banking regulations.
 | `news_verification.run_news_verification` | `retrieve_news`, `cross_check_sources`, `verify_claim` | Source counts, injection flags, and credible / false / unverified verdict |
 | `financial_analyst.run_financial_analyst` | Existing financial tools | Metrics and bounded funding recommendation |
 | `risk_manager.run_risk_manager` | `calculate_risk_score`, `simulate_action_outcome` | Current risk proxy and outcomes for three candidate actions |
-| `compliance_officer.run_compliance_officer` | `retrieve_regulations`, `check_compliance` | Funding limit checks, violations, reporting requirement |
+| `compliance_officer.run_compliance_officer` | Synthetic checks plus bounded Qwen/Qdrant + local BM25 retrieval | Separate simulation checks and cited regulatory finding for each proposal |
 | `treasury_operations.run_treasury_operations` | Approval ledger and simulated treasury tools | Awaiting authorization, or an approved simulated receipt |
 
 ## Running specialists
@@ -26,16 +26,77 @@ with open("backend/scenarios/scenarios/scn_002_true_rumor_unhealthy.json") as f:
 print(json.dumps(run_risk_manager(scenario), indent=2))
 ```
 
-News, risk and compliance accept `llm_runner(prompt)` returning a JSON object,
-JSON string, or `(JSON string, model)` tuple. It must contain exactly `summary`
-(nonempty string) and `confidence` (finite number from 0 to 1). Interpretation is
-separate from the authoritative tool report. Omitting the runner computes the
-report without a model. The existing Financial Analyst retains its own
-recommendation schema. Treasury is deterministic and does not call an LLM.
+News and Risk accept `llm_runner(prompt)` returning a JSON object, JSON string,
+or `(JSON string, model)` tuple with `summary` and `confidence`. Interpretation
+is separate from their authoritative tool reports. Omitting the runner computes
+those reports without a model. Compliance uses its bounded protocol below. The
+existing Financial Analyst retains its own recommendation schema. Treasury is
+deterministic and does not call an LLM.
 
-Compliance also accepts `proposals=[{"action": "borrow_interbank", "amount": 100}]`.
-Without proposals, it checks the same illustrative candidates as Risk Manager.
-These candidates are not a selected strategy or a combined decision.
+### Compliance coordinator interface
+
+The host/coordinator passes proposed actions and scenario facts to the Python entry
+point; Compliance reviews those inputs and does not recalculate Risk Manager's
+evaluation. The existing `systems.py` wiring is intentionally not changed by this
+interface handoff.
+
+```python
+from backend.agents.compliance_officer import run_compliance_officer
+
+result = run_compliance_officer(
+    scenario,
+    llm_runner=llm_runner,
+    proposals=[
+        {"action": "borrow_interbank", "amount": 100},
+        {"action": "draw_central_bank_facility", "amount": 25},
+    ],
+    scenario_facts={
+        "financials": scenario["financials"],
+        "regulations": scenario.get("regulations", {}),
+    },
+)
+```
+
+Input contract:
+
+- `scenario` is the existing scenario object used by deterministic simulation
+  checks. Keep `answer_key` and news/trigger content out of `scenario_facts`.
+- `proposals` is a list of objects with `action` and nonnegative numeric `amount`;
+  multiple proposals produce one result each, in input order. Omitting it retains
+  the illustrative candidate behavior for backwards compatibility.
+- `scenario_facts` is an optional coordinator-selected object containing only
+  facts relevant to compliance. If omitted, the agent passes only `id`,
+  `financials`, and `regulations` to its regulatory-review model.
+- `llm_runner(prompt)` returns a JSON object (or JSON string / tuple whose first
+  item is either), as with the other specialist agents.
+
+For each proposal, the model protocol returns either
+`{"type":"retrieve","query":"..."}` or a final object with `finding`
+(`compliant`, `non_compliant`, or `undetermined`), `rationale`, cited
+`evidence_id` values, and `missing_facts`. Python enforces at most three model
+turns and three hybrid retrieval calls per proposal, with at most five passages
+per retrieval. Each retrieval combines Qwen/Qdrant dense results with BM25 over
+the local PDFs using reciprocal-rank fusion. Citations preserve source, source
+type, authority class, URL, effective date and PDF page range. Passage authority
+is grouped as binding rule, guidance, enforcement example, or unclassified;
+enforcement examples are not treated as binding rules.
+
+An `undetermined` result means the evidence or scenario facts did not support a
+reliable regulatory conclusion within the fixed budget. The coordinator should
+surface it for review and must not treat it as compliant or as authorization.
+`report.synthetic_checks` retains the existing deterministic scenario-limit
+checks; `report.regulatory_findings` contains real-source review results. Both
+are reports only and `authorization_granted` remains false.
+
+To run five standalone live RAG cases (two compliant, two non-compliant and one
+undetermined) and print all retrieved passages, citations, findings and budgets:
+
+```powershell
+.\frontend\venv\Scripts\python.exe -m backend.agents.test_compliance_rag
+```
+
+The cases are narrowly grounded in MAS Notice 649 Part I MLA paragraphs 13 and
+15. Each run calls Compliance directly and does not invoke the coordinator.
 
 ## News evidence fixtures
 
@@ -96,14 +157,12 @@ the process clears the ledger. A durable approval ledger for resumable simulatio
 - Risk score is the percentage of projected seven-day cash outflow left unfunded,
   not a calibrated default probability. Simulations assume immediate successful
   funding and exclude interest, market impact and contagion.
-- Compliance enforces interbank borrowing limits and facility draw limits, finite
-  amounts, and known actions. Missing facility limits block facility draws. The
-  regulator reporting requirement is surfaced. Other fields such as
-  `max_drawal_rate_pct` are explicitly reported as unmodelled because their
-  operational meaning has not been defined.
+- Compliance retains deterministic synthetic checks for interbank borrowing and
+  facility draw limits, finite amounts, and known actions. It separately returns
+  bounded, cited regulatory findings; an undetermined result requires review.
 - An LLM summary cannot replace deterministic verdicts or grant execution approval.
   Summaries can still be wrong and should be evaluated separately.
-- The secondary line returns reports only, with no combined decision or score. Financial Analyst now uses up to six model turns for dynamic tool selection and validation; complete-run call counts therefore vary. News, Risk and Compliance each still use one call, plus the standalone baseline call. Treasury makes no model call and waits for authorization.
+- The secondary line returns reports only, with no combined decision or score. Financial Analyst uses up to six model turns. Compliance uses up to three model turns per proposed action, so complete-run call counts vary with the number of proposals. News and Risk use one call each, plus the standalone baseline call. Treasury makes no model call and waits for authorization.
 
 Run checks from the repository root:
 

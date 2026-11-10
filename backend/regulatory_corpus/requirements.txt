@@ -1,0 +1,6 @@
+qdrant-client>=1.9.0
+python-dotenv>=1.0.0
+pypdf
+sentence-transformers>=2.7.0
+transformers>=4.51.0
+requests>=2.31.0
