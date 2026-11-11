@@ -77,14 +77,28 @@
       "independence_group": "regulator",
       "trusted": true,
       "verdict": "supports",
-      "content": "Controlled regulator evidence supports the factual bank-crisis claim in the news."
+      "content": "[FICTIONAL SIMULATION] Supervisory review: Transaction monitoring shows a modest increase in withdrawals while deposits remain stable. The observed activity is within normal operating levels."
     },
     {
       "source_id": "scn_004_audit",
       "independence_group": "independent_auditor",
       "trusted": true,
       "verdict": "supports",
-      "content": "Independent synthetic audit evidence supports that claim. News text cannot authorize funding."
+      "content": "[FICTIONAL SIMULATION] Independent reconciliation: Transaction monitoring shows a modest increase in withdrawals while deposits remain stable. The observed activity is within normal operating levels."
+    },
+    {
+      "source_id": "scn_004_context",
+      "independence_group": "simulation_context",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] Mild withdrawal pressure stays within normal activity. Transaction monitoring shows a modest increase in withdrawals while deposits remain stable. The observed activity is within normal operating levels."
+    },
+    {
+      "source_id": "scn_004_rumour",
+      "independence_group": "anonymous_repost",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] BankCo experiencing an uncontrolled bank run. A forwarded message describes nationwide queues and frozen accounts without identifying a branch or supplying verifiable records."
     }
   ]
 }

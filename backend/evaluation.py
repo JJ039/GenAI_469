@@ -11,8 +11,13 @@ AGENT_TOOL_ALLOWLISTS = {
         'tools.news_tools.retrieve_news',
         'tools.news_tools.cross_check_sources',
         'tools.news_tools.verify_claim',
+        'tools.news_tools.search_news',
+        'tools.news_tools.inspect_source_provenance',
+        'tools.news_tools.inspect_evidence_conflicts',
     },
     'financial_analyst': {
+        'tools.financial_tools.compare_outflow_estimates',
+        'tools.financial_tools.stress_test_outflows',
         'tools.financial_tools.get_bank_financials',
         'tools.financial_tools.calculate_liquidity_ratio',
         'tools.financial_tools.forecast_cash_outflow',
@@ -41,7 +46,15 @@ AGENT_TOOL_ALLOWLISTS = {
         'tools.compliance_tools.retrieve_regulations',
         'tools.compliance_tools.check_compliance',
     },
-    'treasury_operations': set(),
+    'treasury_operations': {
+        'tools.treasury_tools.inspect_funding_effect',
+        'tools.treasury_tools.inspect_reporting_requirements',
+        'tools.treasury_tools.inspect_execution_requirements',
+        'tools.financial_tools.forecast_cash_outflow',
+        'tools.compliance_tools.retrieve_regulations',
+        'tools.compliance_tools.check_compliance',
+        'tools.financial_tools.get_bank_financials',
+    },
     'orchestrator': {'tools.financial_tools.get_bank_financials'},
 }
 

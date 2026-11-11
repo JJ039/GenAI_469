@@ -11,7 +11,13 @@ combined-decision and approval stage; that implementation is deliberately absent
 2. Financial Analyst computes metrics and a bounded funding recommendation.
 3. Risk Manager reviews the actual financial recommendation and candidate actions.
 4. Compliance Officer checks that recommendation, without selecting a team strategy.
-5. Treasury Operations returns awaiting_authorization. No dashboard approval is issued.
+5. Treasury Operations prepares a plan for the Financial Analyst candidate using a bounded read-only tool loop and returns awaiting_authorization. No dashboard approval is issued.
+
+News Verification also uses a bounded source-inspection loop; its rule-based verdict
+remains authoritative. Financial Analyst can correct rejected numeric claims within
+its existing turn budget. See `backend/agents/README.md` for tools, trajectory metrics
+and Topic 7 mappings. These are application-level validated JSON calls, not native
+provider tool calls. The team still has no combined decision.
 
 News Verification is authoritative for the deterministic evidence verdict. Its
 report includes source IDs, independent supporting/refuting group counts, conflict

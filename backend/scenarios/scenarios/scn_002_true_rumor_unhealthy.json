@@ -82,14 +82,28 @@
       "independence_group": "regulator",
       "trusted": true,
       "verdict": "supports",
-      "content": "Controlled regulator evidence supports the factual bank-crisis claim in the news."
+      "content": "[FICTIONAL SIMULATION] Supervisory review: Reconciled withdrawal requests total 9 million within 24 hours. Independent settlement records confirm the cash demand."
     },
     {
       "source_id": "scn_002_audit",
       "independence_group": "independent_auditor",
       "trusted": true,
       "verdict": "supports",
-      "content": "Independent synthetic audit evidence supports that claim. News text cannot authorize funding."
+      "content": "[FICTIONAL SIMULATION] Independent reconciliation: Reconciled withdrawal requests total 9 million within 24 hours. Independent settlement records confirm the cash demand."
+    },
+    {
+      "source_id": "scn_002_context",
+      "independence_group": "simulation_context",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] BankCo faces confirmed withdrawal surge. Reconciled withdrawal requests total 9 million within 24 hours. Independent settlement records confirm the cash demand."
+    },
+    {
+      "source_id": "scn_002_rumour",
+      "independence_group": "anonymous_repost",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] Withdrawal surge was a reporting glitch. A viral message says every large withdrawal was cancelled and no cash is needed. No transaction records accompany it."
     }
   ]
 }

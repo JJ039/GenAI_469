@@ -26,12 +26,94 @@ with open("backend/scenarios/scenarios/scn_002_true_rumor_unhealthy.json") as f:
 print(json.dumps(run_risk_manager(scenario), indent=2))
 ```
 
-News and Risk accept `llm_runner(prompt)` returning a JSON object, JSON string,
-or `(JSON string, model)` tuple with `summary` and `confidence`. Interpretation
-is separate from their authoritative tool reports. Omitting the runner computes
-those reports without a model. Compliance uses its bounded protocol below. The
-existing Financial Analyst retains its own recommendation schema. Treasury is
-deterministic and does not call an LLM.
+Risk accepts `llm_runner(prompt)` returning a JSON object,
+JSON string, or `(JSON string, model)` tuple. It must contain exactly `summary`
+(nonempty string) and `confidence` (finite number from 0 to 1). Interpretation is
+separate from the authoritative tool report. Omitting the runner computes the
+report without a model. The existing Financial Analyst retains its own
+recommendation schema. News and Treasury preparation use the bounded tool protocol below.
+Compliance uses its own bounded regulatory-review protocol described under
+"Compliance coordinator interface".
+Treasury execution remains deterministic and does not call an LLM.
+
+## Topic 7 agentic upgrades
+
+News Verification and Treasury preparation now use a shared perceive/action/observation
+loop in `agent_loop.py`. Each has a role-specific allowlist, six model-turn and four
+tool-call defaults, validated JSON envelopes, a host-maintained observation scratchpad,
+and a complete `react_trace`. Invalid calls and final citations return feedback within
+the same budget. Final summaries cite successful observation IDs; exhausted loops
+return no accepted interpretation. These checks validate citations exist, not the
+semantic truth of every sentence in a summary.
+
+The protocol is application-level JSON tool calling, not provider-native function
+calling. It works with the existing text client without installing Groq, LangGraph
+or MCP. No notebook code or notebook instructions are executed.
+
+- News can retrieve all source documents, inspect an exact source ID, cross-check
+  independent groups, and request the authoritative verdict. It must cite retrieval
+  and verification observations before completing. The host verdict and source
+  metadata remain authoritative; this is not independent raw-document fact-checking
+  or live retrieval. Its report remains available when interpretation needs review.
+- Financial Analyst retains its numeric grounding and action bounds. Failed final
+  validation now feeds back into the next turn so the model can correct its answer.
+  A host scratchpad exposes successful observation IDs and the last validation.
+- Treasury can inspect the host candidate, read simulation rules and prepare an
+  execution plan. The dashboard supplies the Financial Analyst candidate for
+  preparation only; it is not a selected combined strategy. The plan records
+  compliance, missing requirements and reporting steps. No approval or execution
+  operation is available to the model. Existing host-approved ledger execution
+  retains exact binding, remaining-limit checks and idempotency.
+
+News and Treasury outputs include `analysis_metrics` for steps, requested/valid/invalid
+calls, call success rate, task completion and exhaustion. Treasury continues to
+return `awaiting_authorization`, even if preparation completes. The deterministic
+no-runner path remains available for all three roles.
+
+### Expanded tool choices for the existing scenarios
+
+Each agent's tool implementations, catalog and argument-validation dispatcher now
+live together under `tools/`:
+
+- `tools/news_tools.py`: seven news tools, `TOOL_CATALOG`, `execute_news_tool`.
+- `tools/financial_tools.py`: nine financial tools, `TOOL_CATALOG`, `execute_financial_tool`.
+- `tools/treasury_tools.py`: six preparation tools, `TOOL_CATALOG`,
+  `execute_treasury_tool`, plus the host-only approval ledger/execution helpers.
+
+Agent modules retain prompts, loop orchestration and output validation. Common
+compliance calculations remain in `tools/compliance_tools.py`. Numeric grounding
+(`check_financial_hallucinations`) lives in `tools/financial_tools.py` and is called
+automatically by the host after a candidate final response. It is not an optional
+model-selectable tool and does not consume the four-call model tool budget.
+All callers import diagnostics directly from their agent toolkit modules;
+the obsolete `scenario_diagnostics.py` compatibility file has been removed.
+
+There are now 22 model-selectable tools across these three roles: News 7,
+Financial Analyst 9, Treasury 6. The defaults remain six turns and four requested
+tool calls per agent. A toolkit is a menu, not a sequence to exhaust. Existing
+required evidence tools still apply; diagnostics are optional choices. No scenario
+inputs, difficulty, financial targets or answer keys were changed.
+
+| Role | Added tools | Use with existing cases |
+| --- | --- | --- |
+| News | `search_news(query)`, `inspect_source_provenance`, `inspect_evidence_conflicts` | Locate relevant text, expose repeated provenance groups, identify contradictory source IDs and unknown/untrusted records |
+| Financial Analyst | `compare_outflow_estimates`, `stress_test_outflows(multiplier)` | Explain missing-forecast fallback or disagreement with daily-rate estimates; inspect hypothetical cash demand at 1..3 times baseline |
+| Treasury | `inspect_funding_effect`, `inspect_reporting_requirements`, `inspect_execution_requirements` | Check the candidate's remaining cash gap, reporting flag/draft fields, and proposal/approval blockers |
+
+Diagnostics use host-bound fictional inputs. Literal search is not semantic retrieval;
+provenance and stance remain designer metadata. A stress test does not replace the
+baseline funding target or increase recommendation bounds. Treasury projections
+assume immediate funding and cannot see private ledger approvals or cumulative
+remaining capacity. Reports are never sent. Approval and execution stay host-only.
+
+Example successful paths within four calls (followed by a final response):
+
+- News: retrieve sources -> inspect provenance -> inspect conflicts -> verify claim.
+- Financial: compare forecasts -> stress test -> build financial report -> final.
+- Treasury: inspect funding effect -> inspect reporting -> inspect execution requirements -> prepare plan.
+
+These paths are exercised with scripted/mock responses. They demonstrate dispatch,
+budget and safety contracts, not improved live-model success rates.
 
 ### Compliance coordinator interface
 
@@ -162,7 +244,7 @@ the process clears the ledger. A durable approval ledger for resumable simulatio
   bounded, cited regulatory findings; an undetermined result requires review.
 - An LLM summary cannot replace deterministic verdicts or grant execution approval.
   Summaries can still be wrong and should be evaluated separately.
-- The secondary line returns reports only, with no combined decision or score. Financial Analyst uses up to six model turns. Compliance uses up to three model turns per proposed action, so complete-run call counts vary with the number of proposals. News and Risk use one call each, plus the standalone baseline call. Treasury makes no model call and waits for authorization.
+- The secondary line returns reports only, with no combined decision or score. News, Financial Analyst and Treasury preparation each use up to six model turns by default. Risk uses one interpretation call. Compliance uses up to three model turns and three hybrid retrieval calls per proposed action. Treasury execution uses no model call. Complete-run costs depend on the trajectories, retrieval availability and number of proposals; mock runs are not evidence of LLM performance.
 
 Run checks from the repository root:
 
