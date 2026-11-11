@@ -59,18 +59,22 @@ def run_agent(prompt, models=None):
     Run the LLM with fallback chain: OpenRouter -> Gemini -> NVIDIA.
     Each model is tried in order until one succeeds or all fail.
     Supports cancellation via set_cancel()/cancel_requested().
+    NVIDIA_API_KEY and NVIDIA_API_KEY2 are read from environment for NVIDIA models.
     """
     import threading
     import time
     import select
     import subprocess
 
-    # Default fallback chain
+    # Default fallback chain (OpenRouter → Gemini → NVIDIA)
     if models is None:
+        # Try HuggingFace Nous Hermes 2 Mistral 7B first (free, if HF_TOKEN present),
+        # then Gemini, then NVIDIA (unrestricted free tiers)
+        use_nous_hf = os.environ.get("HF_TOKEN", "").strip() and "NousResearch/Nous-Hermes-2-Mistral-7B" or "gemini/gemini-2.5-flash"
         models = [
-            "nvidia/nemotron-3-ultra-550b-a55b:free",  # OpenRouter
-            "gemini/gemini-2.0-flash",                  # Gemini
-            "nvidia/llama-3.1-70b-instruct",            # NVIDIA (fallback)
+            use_nous_hf,
+            "gemini/gemini-2.0-flash",
+            "nvidia/llama-3.1-70b-instruct",
         ]
 
     hermes_path = os.environ.get("HERMES_EXECUTABLE") or \
@@ -83,6 +87,10 @@ def run_agent(prompt, models=None):
             raise FileNotFoundError("hermes executable not found. Please install Hermes Agent.")
 
     failures = []
+    # Set NVIDIA API key(s) in environment for NVIDIA models
+    os.environ["NVIDIA_API_KEY"] = os.environ.get("NVIDIA_API_KEY", "")
+    os.environ["NVIDIA_API_KEY2"] = os.environ.get("NVIDIA_API_KEY2", "")
+
     for model in models:
         # Check cancellation before each attempt
         if cancel_requested():

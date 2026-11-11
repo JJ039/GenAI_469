@@ -168,7 +168,28 @@ export default function App() {
   const [tab, setTab] = useState('overview');
   const [selectedSource, setSelectedSource] = useState(null);
   const [runLabel, setRunLabel] = useState('');
+  const [canceling, setCanceling] = useState(false);
+  const [cancelingError, setCancelingError] = useState(null);
   const busy = starting || Boolean(taskId);
+
+  const handleCancel = async () => {
+    if (!busy) return;
+    setCanceling(true);
+    setCancelingError(null);
+    try {
+      const response = await fetch(`${API}/api/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: taskId })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not cancel the run.');
+    } catch (failure) {
+      setCancelingError(failure.message || 'Could not reach the cancel endpoint.');
+    } finally {
+      setCanceling(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -196,7 +217,7 @@ export default function App() {
         setStageMessage(data.message || 'Waiting for a model response.');
         setStageElapsed(data.elapsed_seconds || 0);
         if (data.result && Object.keys(data.result).length) setResult(data.result);
-        if (data.status === 'completed' || data.status === 'error') {
+        if (data.status === 'completed' || data.status === 'error' || data.status === 'cancelled') {
           setTaskId(null);
           if (data.status === 'error') setError(data.error || 'Both systems could not finish.');
         } else timer = setTimeout(poll, 750);
@@ -236,7 +257,11 @@ export default function App() {
     <aside className="sidebar"><a className="brand" href="#main-content" aria-label="CrisisLab home"><span className="brand-mark"><Icon name="layers" size={23} /></span><span>Crisis<span className="brand-light">Lab</span><small>DECISION INTELLIGENCE</small></span></a><div className="sidebar-group"><p className="nav-label">WORKSPACE</p><nav aria-label="Dashboard views">{TABS.map(item => <button key={item.id} className={`nav-item ${tab === item.id ? 'is-active' : ''}`} aria-current={tab === item.id ? 'page' : undefined} onClick={() => setTab(item.id)}><Icon name={item.icon} /><span>{item.label}</span>{tab === item.id && <span className="nav-active-dot" />}</button>)}</nav></div><div className="sidebar-footer"><span className="protocol-icon"><Icon name="shield" size={21} /></span><strong>A controlled experiment</strong><p>One scenario. Two independent decision systems.</p><span className="protocol-version">Protocol v2 <span>?</span> {scenarios.length || '?'} scenarios</span></div></aside>
     <div className="workspace"><header className="workspace-bar"><div className="breadcrumb">Workspace <span>/</span> Crisis evaluation</div><div className="workspace-status"><span className={`connection-dot connection-dot--${connection}`} />{connection === 'connected' ? 'API connected' : connection === 'error' ? 'Server unavailable' : 'Connecting'}<span className="bar-divider" /><Icon name="shield" size={14} />Simulation only</div></header>
       <main id="main-content" className="main-content"><header className="page-header"><div><span className="eyebrow">BASELINE VS. MULTI-AGENT</span><h1>Compare crisis decisions</h1><p>A shared scenario. A clear view of how each system responds.</p></div><button className="button button--secondary export-button" onClick={exportRun} disabled={!result || busy}><Icon name="download" size={16} />Export run</button></header>
-        <section className="run-control" aria-label="Run configuration"><div className="scenario-select"><label htmlFor="scenario-select">Crisis scenario <span>{scenarios.length} available</span></label><select id="scenario-select" value={selected} onChange={event => setSelected(event.target.value)} disabled={busy || connection !== 'connected'}><option value="">Choose a scenario to evaluate</option>{scenarios.map(item => <option key={item.id} value={item.id}>{humanize(item.name)}</option>)}</select></div><div className="run-control-note"><Icon name="layers" size={20} /><span>Same evidence.<br /><strong>Same evaluation rubric.</strong></span></div><button className="button button--primary" onClick={runScenario} disabled={!selected || busy}>{busy ? <span className="spinner" /> : <Icon name="arrow" size={18} />}{busy ? 'Comparison running' : 'Run comparison'}</button></section>
+        <section className="run-control" aria-label="Run configuration"><div className="scenario-select"><label htmlFor="scenario-select">Crisis scenario <span>{scenarios.length} available</span></label><select id="scenario-select" value={selected} onChange={event => setSelected(event.target.value)} disabled={busy || connection !== 'connected'}><option value="">Choose a scenario to evaluate</option>{scenarios.map(item => <option key={item.id} value={item.id}>{humanize(item.name)}</option>)}</select></div><div className="run-control-note"><Icon name="layers" size={20} /><span>Same evidence.<br /><strong>Same evaluation rubric.</strong></span></div><button className="button button--primary" onClick={runScenario} disabled={!selected || busy}>{busy ? <span className="spinner" /> : <Icon name="arrow" size={18} />}{busy ? 'Comparison running' : 'Run comparison'}</button>
+        {busy && <button className="button button--secondary cancel-button" onClick={handleCancel} disabled={canceling}>
+          <Icon name="x" size={16} />{canceling ? 'Canceling…' : 'Cancel run'}
+        </button>}
+        {cancelingError && <div className="error-banner" role="alert"><Icon name="alert" size={20} /><div><strong>{cancelingError}</strong></div></div>}</section>
         {error && <div className="error-banner" role="alert"><Icon name="alert" size={20} /><div><strong>We couldn?t complete that request</strong><p>{error}</p></div></div>}
         {(busy || result) && <section className="run-progress" aria-label="Run progress"><ol>{stageNames.map((label, index) => <li key={label} className={completedStages[index] ? 'is-complete' : busy && currentStage === index + 1 ? 'is-current' : ''}><span>{completedStages[index] ? <Icon name="check" size={13} /> : String(index + 1).padStart(2, '0')}</span>{label}</li>)}</ol><div className="run-live-message" aria-live="polite">{busy ? <><span className="live-dot" />{stageMessage}<span className="elapsed">{stageElapsed}s</span></> : <><Icon name="check" size={14} />{error ? 'Run finished with errors' : secondary?.decision_status === 'awaiting_integration' ? 'Baseline and specialist reports collected' : 'Comparison complete'}</>}</div></section>}
         <div className="view-heading"><div><h2>{TABS.find(item => item.id === tab)?.label}</h2>{runLabel ? <p>Results for <strong>{runLabel}</strong></p> : <p>{tab === 'overview' ? 'Two independent approaches to the same crisis.' : 'Inspect the evidence behind every decision.'}</p>}</div><Badge>{tab === 'overview' ? 'Independent systems' : tab === 'activity' ? 'Recorded handoffs' : tab === 'metrics' ? 'Shared rubric' : 'Controlled evidence'}</Badge></div>
