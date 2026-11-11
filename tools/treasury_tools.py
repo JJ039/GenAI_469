@@ -13,12 +13,12 @@ from tools.compliance_tools import check_compliance
 
 
 def _scenario_key(scenario):
-    inputs = {key: scenario.get(key) for key in ("id", "trigger", "financials", "regulations")}
+    inputs = {key: scenario.get(key) for key in ("id", "trigger", "financials", "regulations", "news_sources")}
     return hashlib.sha256(json.dumps(inputs, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
 
 class TreasurySimulation:
-    def __init__(self, authorized_approvers=("human_reviewer", "crisis_coordinator")):
+    def __init__(self, authorized_approvers=("human_reviewer",)):
         self._authorized_approvers = frozenset(authorized_approvers)
         self._approvals = {}
         self._receipts = {}
@@ -71,7 +71,8 @@ class TreasurySimulation:
                        "approved_by": approval["approved_by"], "simulated": True,
                        "status": "simulated_executed",
                        "requires_regulator_report": scenario.get("regulations", {}).get("report_to_regulator") is True,
-                       "regulator_report_sent": False}
+                       "regulator_report_sent": False,
+                       "simulated_regulator_report_filed": scenario.get("regulations", {}).get("report_to_regulator") is True}
             self._receipts[approval_id] = receipt
             return deepcopy(receipt)
 
@@ -82,3 +83,12 @@ def draw_central_bank_facility(book, scenario, amount, approval_id):
 
 def request_interbank_borrowing(book, scenario, amount, approval_id):
     return book.execute(scenario, {"action": "borrow_interbank", "amount": amount}, approval_id)
+
+
+# Instrument actual tool invocations, including nested deterministic calculations.
+from backend.telemetry import tracked_tool
+for _name, _value in list(globals().items()):
+    if callable(_value) and getattr(_value, '__module__', None) == __name__ and not _name.startswith('_') and not isinstance(_value, type):
+        globals()[_name] = tracked_tool(_value)
+TreasurySimulation.approve = tracked_tool(TreasurySimulation.approve)
+TreasurySimulation.execute = tracked_tool(TreasurySimulation.execute)

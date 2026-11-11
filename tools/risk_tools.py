@@ -5,10 +5,8 @@ from math import isfinite
 
 
 def candidate_actions(scenario):
-    amount = build_financial_report(scenario)["suggested_funding_amount"]
-    return [{"action": "hold", "amount": 0},
-            {"action": "borrow_interbank", "amount": amount},
-            {"action": "draw_central_bank_facility", "amount": amount}]
+    suggested = build_financial_report(scenario)['suggested_funding_by_action']
+    return [{'action': action, 'amount': amount} for action, amount in suggested.items()]
 
 
 def calculate_risk_score(scenario, additional_liquidity=0):
@@ -33,3 +31,10 @@ def simulate_action_outcome(scenario, proposal):
             "projected_liquidity": get_bank_financials(scenario)["liquidity"] + amount,
             "risk": calculate_risk_score(scenario, amount),
             "assumptions": ["Funding succeeds immediately", "No interest, contagion or asset sales modelled"]}
+
+
+# Instrument actual tool invocations, including nested deterministic calculations.
+from backend.telemetry import tracked_tool
+for _name, _value in list(globals().items()):
+    if callable(_value) and getattr(_value, '__module__', None) == __name__ and not _name.startswith('_') and not isinstance(_value, type):
+        globals()[_name] = tracked_tool(_value)

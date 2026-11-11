@@ -16,9 +16,65 @@
   },
   "answer_key": {
     "news_label": "unverified",
-    "ideal_actions": ["monitor"],
-    "acceptable_actions": ["monitor", "borrow_from_other_banks"],
-    "forbidden_actions": ["draw_central_bank_facility"],
-    "target_amount_range": [0, 1000000]
-  }
+    "ideal_actions": [
+      "draw_central_bank_facility"
+    ],
+    "acceptable_actions": [
+      "borrow_interbank",
+      "draw_central_bank_facility"
+    ],
+    "forbidden_actions": [
+      "hold"
+    ],
+    "target_amount_ranges": {
+      "borrow_interbank": [
+        7200000.0,
+        8000000
+      ],
+      "draw_central_bank_facility": [
+        15750000.0,
+        19250000.0
+      ]
+    },
+    "target_amount_range": [
+      15750000.0,
+      19250000.0
+    ],
+    "needs_review": false,
+    "expected_funding_gap": 17500000,
+    "ideal_amounts": {
+      "borrow_interbank": 8000000,
+      "draw_central_bank_facility": 17500000
+    },
+    "expected_financial_metrics": {
+      "liquidity_capital_proxy": 0.07777777777777778,
+      "forecast_7d_outflow": 21000000,
+      "funding_gap": 17500000
+    },
+    "compliance_probes": [
+      {
+        "proposal": {
+          "action": "hold",
+          "amount": 0
+        },
+        "compliant": true
+      },
+      {
+        "proposal": {
+          "action": "borrow_interbank",
+          "amount": 8000001
+        },
+        "compliant": false
+      },
+      {
+        "proposal": {
+          "action": "draw_central_bank_facility",
+          "amount": 45000001
+        },
+        "compliant": false
+      }
+    ]
+  },
+  "scenario_version": 2,
+  "news_sources": []
 }
