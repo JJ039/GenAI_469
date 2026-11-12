@@ -3,7 +3,8 @@ from copy import deepcopy
 import time
 from backend.llm_client import LLMClient
 from backend.telemetry import TOOL_AGENT, TOOL_LOG
-from backend.agents.main_agent import build_prompt, scenario_inputs
+from backend.agents.main_agent import scenario_inputs
+from backend.agents.baseline_agent import run_baseline_agent
 from backend.agents.output_schema import HermesBankDecision, parse_json_object
 from backend.agents.news_verification import run_news_verification
 from backend.agents.financial_analyst import run_financial_analyst
@@ -93,7 +94,10 @@ def run_system(scenario, system='baseline', client=None, callback=None):
         if system == 'baseline':
             ctx.role = 'baseline'
             TOOL_AGENT.set('baseline')
-            raw = ctx.ask(build_prompt(inputs))
+            baseline_output = run_baseline_agent(inputs, llm_runner=ctx.ask)
+            raw = baseline_output['decision']
+            result['baseline_agent'] = baseline_output
+            result['analysis_metrics'] = deepcopy(baseline_output['analysis_metrics'])
             result['proposed_decision'] = deepcopy(raw)
             result['decision'] = HermesBankDecision(**raw).model_dump()
             ctx.emit('main_agent', result['decision'], prompt=ctx.calls[-1]['prompt'], model=ctx.calls[-1].get('model'))

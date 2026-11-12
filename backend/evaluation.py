@@ -6,7 +6,24 @@ from tools.compliance_tools import check_compliance
 
 
 AGENT_TOOL_ALLOWLISTS = {
-    'baseline': set(),
+    'baseline': {
+        'tools.news_tools.retrieve_news', 'tools.news_tools.read_source',
+        'tools.news_tools.cross_check_sources', 'tools.news_tools.verify_claim',
+        'tools.news_tools.search_news', 'tools.news_tools.inspect_source_provenance',
+        'tools.news_tools.inspect_evidence_conflicts',
+        'tools.financial_tools.get_bank_financials', 'tools.financial_tools.calculate_liquidity_ratio',
+        'tools.financial_tools.forecast_cash_outflow', 'tools.financial_tools.calculate_funding_gap',
+        'tools.financial_tools.calculate_cash_runway', 'tools.financial_tools.calculate_borrowing_capacity',
+        'tools.financial_tools.build_financial_report', 'tools.financial_tools.compare_outflow_estimates',
+        'tools.financial_tools.stress_test_outflows',
+        'tools.risk_tools.calculate_risk_score', 'tools.risk_tools.candidate_actions',
+        'tools.risk_tools.compare_action_outcomes', 'tools.risk_tools.simulate_action_outcome',
+        'tools.treasury_tools.inspect_proposal', 'tools.treasury_tools.retrieve_regulations',
+        'tools.treasury_tools.prepare_execution_plan', 'tools.treasury_tools.inspect_funding_effect',
+        'tools.treasury_tools.inspect_reporting_requirements', 'tools.treasury_tools.inspect_execution_requirements',
+        'tools.compliance_tools.retrieve_regulations', 'tools.compliance_tools.check_compliance',
+        'backend.agents.baseline_agent.search_regulatory_corpus',
+    },
     'news_verification': {
         'tools.news_tools.retrieve_news',
         'tools.news_tools.cross_check_sources',
@@ -188,6 +205,8 @@ def evaluate_agent_telemetry(result):
             'tools': [tool.get('tool') for tool in agent_tools],
         }
         output = result.get('agents', {}).get(name, {}).get('output', {})
+        if name == 'baseline':
+            output = result.get('baseline_agent', output)
         analysis = output.get('analysis_metrics', {})
         interpretation = output.get('interpretation') or {}
         diagnostics[name]['reported_confidence'] = interpretation.get('confidence')
