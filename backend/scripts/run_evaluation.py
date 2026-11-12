@@ -23,7 +23,7 @@ def main(argv=None):
     parser.add_argument('--systems', nargs='+', choices=['baseline','multi_agent'], default=['baseline','multi_agent'])
     parser.add_argument('--model', default=None)
     parser.add_argument('--temperature', type=float, default=0.1)
-    parser.add_argument('--transport', choices=['openrouter','hermes'], default='openrouter')
+    parser.add_argument('--transport', choices=['openrouter','ollama','hermes'], default='openrouter')
     parser.add_argument('--max-tokens', type=int, default=4096)
     parser.add_argument('--reasoning-effort', choices=['none','minimal','low','medium','high'], default='low')
     parser.add_argument('--scenarios', type=Path, default=ROOT/'backend/scenarios/scenarios')
@@ -37,7 +37,7 @@ def main(argv=None):
     if len(set(args.systems)) != len(args.systems):
         parser.error('systems must be unique')
     if args.transport == 'hermes' and not args.mock:
-        parser.error('Controlled experiments require openrouter transport to set temperature and disable external tools; Hermes remains available for dashboard/manual use.')
+        parser.error('Controlled experiments require openrouter or ollama transport to set temperature and disable external tools; Hermes remains available for dashboard/manual use.')
     scenarios = load_scenarios(args.scenarios)
     if args.limit:
         scenarios = scenarios[:args.limit]
