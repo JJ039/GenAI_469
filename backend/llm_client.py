@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import time
 import requests
+from backend.local_protocol import response_schema
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
@@ -123,7 +124,7 @@ class LLMClient:
                     "http://127.0.0.1:11434/api/chat",
                     json={"model": self.model,
                           "messages": [{"role": "user", "content": prompt}],
-                          "stream": False, "format": "json", "think": False,
+                          "stream": False, "format": response_schema(prompt), "think": False,
                           "options": {"temperature": self.temperature,
                                       "num_predict": self.max_tokens, "num_ctx": 16384}},
                     timeout=self.timeout)

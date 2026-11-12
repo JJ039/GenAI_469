@@ -2,3 +2,4 @@ flask
 flask-cors
 requests
 pydantic>=2,<3
+-r ../backend/regulatory_corpus/requirements.txt
