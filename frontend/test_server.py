@@ -29,8 +29,9 @@ class AgentApiTests(unittest.TestCase):
         self.assertEqual(task['status'],'completed')
         result=task['result']
         self.assertEqual(result['baseline']['metrics']['correct'],1)
-        self.assertIsNone(result['secondary']['metrics']['correct'])
-        self.assertNotIn('decision', result['secondary'])
+        self.assertIsInstance(result['secondary']['metrics']['correct'], int)
+        self.assertIn('decision', result['secondary'])
+        self.assertEqual(len(result['secondary']['report']['sections']), 5)
         self.assertEqual(len(result['secondary']['agents']),5)
         self.assertFalse(result['secondary']['treasury']['executed'])
         self.assertFalse(result['secondary']['execution_authorized'])

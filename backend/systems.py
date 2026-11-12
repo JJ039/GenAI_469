@@ -12,6 +12,7 @@ from backend.agents.compliance_officer import run_compliance_officer
 from backend.agents.treasury_operations import run_treasury_operations
 from tools.financial_tools import get_bank_financials
 from backend.evaluation import evaluate
+from backend.agents.crisis_coordinator import build_team_report
 
 
 class RunContext:
@@ -139,8 +140,12 @@ def run_system(scenario, system='baseline', client=None, callback=None):
                 matching_findings = [finding for finding in findings if finding.get('proposal') == proposal]
                 if not matching_checks or any(check.get('compliant') is not True for check in matching_checks):
                     blockers.append('Proposal did not pass the simulation compliance checks.')
-                if not matching_findings or any(finding.get('finding') != 'compliant' for finding in matching_findings):
-                    blockers.append('Regulatory review is non-compliant or undetermined.')
+                if not matching_findings:
+                    blockers.append('No regulatory finding was produced for the selected proposal.')
+                for finding in matching_findings:
+                    if finding.get('finding') != 'compliant' or finding.get('missing_facts'):
+                        blockers.append('Regulatory review ' + str(finding.get('finding', 'undetermined'))
+                                        + ': ' + finding.get('rationale', 'Evidence requires review.'))
             for reason in blockers:
                 result['interventions'].append({
                     'stage': 'compliance', 'rule': 'Compliance review required',
@@ -153,7 +158,14 @@ def run_system(scenario, system='baseline', client=None, callback=None):
             result['compliance_blockers'] = blockers
             result['treasury'] = reports['treasury_operations']
             result['agents'] = {name: {'status': 'completed', 'output': output} for name, output in reports.items()}
-            result['note'] = 'Specialist reports only. Combined decision and authorization await teammate integration.'
+            team_report = build_team_report(reports, proposal, blockers)
+            result['report'] = team_report
+            result['decision'] = team_report['decision']
+            result['decision_status'] = 'needs_review' if team_report['blockers'] else 'decided'
+            result['note'] = team_report['summary']
+            ctx.emit('crisis_coordinator', {'agent': 'crisis_coordinator',
+                     'status': result['decision_status'], 'report': team_report,
+                     'interpretation': {'summary': team_report['summary']}})
         result['status'] = 'completed'
     except Exception as exc:
         result.update(status='error', error=str(exc))
@@ -163,8 +175,8 @@ def run_system(scenario, system='baseline', client=None, callback=None):
     finally:
         TOOL_AGENT.reset(agent_token)
         TOOL_LOG.reset(log_token)
-    if system != 'baseline':
-        result['decision_status'] = 'awaiting_integration'
+    if system != 'baseline' and 'decision_status' not in result:
+        result['decision_status'] = 'failed'
     result['trace'] = ctx.trace
     result['telemetry'] = ctx.metrics(time.monotonic() - start)
     result['metrics'] = evaluate(result, scenario)
