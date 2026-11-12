@@ -38,8 +38,8 @@ Treasury execution remains deterministic and does not call an LLM.
 
 ## Topic 7 agentic upgrades
 
-News Verification and Treasury preparation now use a shared perceive/action/observation
-loop in `agent_loop.py`. Each has a role-specific allowlist, six model-turn and four
+News Verification and Treasury preparation each own a perceive/action/observation
+loop in their respective agent modules. Each has a role-specific allowlist, six model-turn and four
 tool-call defaults, validated JSON envelopes, a host-maintained observation scratchpad,
 and a complete `react_trace`. Invalid calls and final citations return feedback within
 the same budget. Final summaries cite successful observation IDs; exhausted loops
