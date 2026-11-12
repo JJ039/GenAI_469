@@ -19,5 +19,33 @@
     "url": "https://www.mas.gov.sg/-/media/mas-media-library/regulation/notices/ppd/notice-649/mas-notice-649-effective-01-september-2026.pdf",
     "effective_date": "2026-09-01",
     "context": "Current published MAS Notice 649 setting minimum liquid assets and liquidity coverage ratio requirements for banks in Singapore, including definitions, eligible liquid assets, calculation rules and reporting requirements."
+  },
+  "MAS Notice 652 effective 01 November 2026.pdf": {
+    "title": "MAS Notice 652 Net Stable Funding Ratio",
+    "source_type": "mas_notice",
+    "url": "https://www.mas.gov.sg/regulation/notices/notice-652",
+    "effective_date": "2026-11-01",
+    "context": "MAS Notice 652 sets minimum all-currency net stable funding ratio requirements for Singapore banks that are domestic systemically important banks or internationally active. Applicability depends on the bank's regulatory status; this is a binding MAS notice."
+  },
+  "Guidelines on Liquidity Risk Management Banks.pdf": {
+    "title": "Guidelines on Liquidity Risk Management (Banks)",
+    "source_type": "mas_guideline",
+    "url": "https://www.mas.gov.sg/regulation/regulations-and-guidance?content_type=Guidelines",
+    "effective_date": "2026-07-10",
+    "context": "MAS supervisory guidance on liquidity risk management practices for banks, merchant banks and finance companies, including governance, liquidity risk measurement, stress testing and contingency funding planning. This is guidance describing supervisory expectations, not a binding notice."
+  },
+  "MAS Intraday Liquidity Facility.pdf": {
+    "title": "MAS Intraday Liquidity Facility",
+    "source_type": "mas_liquidity_facility",
+    "url": "https://www.mas.gov.sg/monetary-policy/liquidity-facilities/mas-intraday-liquidity-facility",
+    "effective_date": "2025-01-01",
+    "context": "MAS terms for eligible MEPS+ participants to obtain intraday SGD liquidity through repurchase transactions, including eligible collateral, tenor, operating window, settlement and reversal. Distinguish this routine intraday facility from the overnight Standing Facility and discretionary Emergency Liquidity Assistance."
+  },
+  "SF  Main Terms and Conditions Jun 2023.pdf": {
+    "title": "MAS Standing Facility Main Terms and Conditions",
+    "source_type": "mas_liquidity_facility",
+    "url": "https://www.mas.gov.sg/monetary-policy/liquidity-facilities/mas-standing-facility",
+    "effective_date": "2023-06-08",
+    "context": "Main agreement governing use of the MAS Standing Facility, an overnight collateralised SGD facility for eligible counterparties. The agreement operates with facility-specific procedures and appendices covering transaction mechanics, collateral and settlement; distinguish the Standing Facility from intraday liquidity and discretionary ELA."
   }
 }
