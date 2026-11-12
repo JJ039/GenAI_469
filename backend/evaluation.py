@@ -37,6 +37,7 @@ AGENT_TOOL_ALLOWLISTS = {
         'tools.risk_tools.calculate_risk_score',
         'tools.risk_tools.candidate_actions',
         'tools.risk_tools.simulate_action_outcome',
+        'tools.risk_tools.compare_action_outcomes',
         'tools.compliance_tools.retrieve_regulations',
         'tools.compliance_tools.check_compliance',
     },
