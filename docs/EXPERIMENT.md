@@ -1,11 +1,20 @@
 # Current experiment status
 
-The baseline is a standalone LLM decision scored with the shared version-2 rubric.
+The baseline is a standalone agent scored with the shared version-2 rubric. It
+has one general-purpose bounded loop and the union of the specialist agents'
+model-selectable tools; it does not receive their specialist reports or prompts.
 The secondary line currently collects News Verification, Financial Analyst, Risk
 Manager, Compliance Officer and Treasury Operations reports. A teammate owns the
 combined-decision and approval stage; that implementation is deliberately absent.
 
 ## Current flow and integration boundary
+
+The single-agent baseline is capped at 15 model turns, 10 host-tool calls and 5
+regulatory retrieval calls (up to 5 passages each). It has the same model-visible
+tool access as the specialist workflows, with a smaller total interaction
+budget than their theoretical combined maximum. The baseline can stop earlier
+when it has a valid decision. Treasury approval and ledger execution remain
+host-only.
 
 1. News Verification computes its controlled-evidence verdict and LLM interpretation.
 2. Financial Analyst computes metrics and a bounded funding recommendation.

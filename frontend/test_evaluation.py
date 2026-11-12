@@ -42,31 +42,39 @@ class EvaluationTests(unittest.TestCase):
                     self.assertNotIn('answer_key',call['prompt'])
                     self.assertNotIn('target_amount_range',call['prompt'])
                 if system=='baseline':
-                    self.assertEqual(result['telemetry']['tool_calls'],0)
-                    self.assertEqual(result['telemetry']['llm_calls'],1)
+                    self.assertGreater(result['telemetry']['tool_calls'],0)
+                    self.assertGreater(result['telemetry']['llm_calls'],1)
+                    self.assertTrue(result['metrics']['tool_allowlist']['valid'])
                     self.assertFalse(result['treasury']['executed'])
 
     def test_nonfinite_json_is_logged_without_breaking_artifacts(self):
         class Nonfinite(MockClient):
             def complete(self,prompt):
                 response=super().complete(prompt)
-                response['text']='{"news_label":"false","action":"hold","amount":NaN,"confidence":0.5,"rationale":"Invalid amount"}'
+                output=json.loads(response['text'])
+                if output.get('type') == 'final':
+                    output['decision']['amount']=float('nan')
+                    response['text']=json.dumps(output)
                 return response
         result=run_system(self.scenarios[0],'baseline',Nonfinite())
-        self.assertEqual(result['status'],'error')
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['baseline_agent']['status'],'needs_review')
+        self.assertGreater(result['analysis_metrics']['invalid_final_responses'],0)
         json.dumps(result,allow_nan=False)
 
     def test_malformed_action_type_is_a_measured_failure(self):
         class BadAction(MockClient):
             def complete(self,prompt):
                 response=super().complete(prompt)
-                value=json.loads(response['text']);value['action']=['not-an-action']
-                response['text']=json.dumps(value)
+                value=json.loads(response['text'])
+                if value.get('type') == 'final':
+                    value['decision']['action']=['not-an-action']
+                    response['text']=json.dumps(value)
                 return response
         result=run_system(self.scenarios[0],'baseline',BadAction())
-        self.assertEqual(result['status'],'error')
-        self.assertEqual(result['metrics']['format_valid'],0)
-        self.assertEqual(result['metrics']['correct'],0)
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['baseline_agent']['status'],'needs_review')
+        self.assertGreater(result['analysis_metrics']['invalid_final_responses'],0)
 
     def test_empty_content_keeps_usage_in_failure(self):
         class EmptyClient(MockClient):
