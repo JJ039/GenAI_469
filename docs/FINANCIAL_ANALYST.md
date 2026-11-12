@@ -1,8 +1,10 @@
 # Financial Analyst: dynamic tool use and numeric hallucination checks
 
-These enhancements are limited to the Financial Analyst and its report consumers.
-The baseline remains a single plain LLM inference call. No combined decision agent
-or automatic approval has been added.
+The Financial Analyst keeps its specialist prompt and report consumers. The
+standalone baseline is now one bounded general-purpose agent with the combined
+News, Financial, Risk, Compliance and Treasury preparation toolkits. It does not
+receive specialist reports or use their separate prompts and handoffs. No
+combined coordinator decision or automatic approval has been added.
 
 ## 1. Bounded ReAct-style tool calling
 

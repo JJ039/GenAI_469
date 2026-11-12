@@ -93,7 +93,8 @@ Every timestamped output directory contains:
 
 ## Architecture and limitations
 
-Baseline: raw scenario evidence -> one LLM decision -> shared evaluator.
+Baseline: raw scenario evidence -> one general-purpose agent with the bounded
+union of specialist tools -> one LLM decision -> shared evaluator.
 
 Specialist line: News Verification + Financial Analyst -> Risk Manager ->
 Compliance reviews the Financial Analyst recommendation -> Treasury waits for
@@ -126,10 +127,12 @@ regression checks. Do not report mock accuracy as evidence for the problem state
 
 ## Financial Analyst enhancement
 
-The analyst now uses bounded model-selected financial tools and validates cited
-numeric claims before releasing a recommendation. See [design, metrics and offline
-benchmark](docs/FINANCIAL_ANALYST.md). This adds inference calls to the financial
-stage; the standalone baseline and teammate-owned integration boundary are unchanged.
+The analyst uses bounded model-selected financial tools and validates cited
+numeric claims before releasing a recommendation. The baseline has the same
+specialist tool access through one shared agent loop, rather than separate role
+prompts and handoffs. Both paths use the same model client and temperature. See
+[design, metrics and offline benchmark](docs/FINANCIAL_ANALYST.md) and
+[experiment design](docs/EXPERIMENT.md) for the comparison budget and limits.
 Day-based phrases such as `7-day horizon`, `7-day period`, `7-day window`, and
 `over 7 days` are treated as forecast-horizon metadata rather than funding
 amounts, preventing valid recommendations from being blocked by their time frame.

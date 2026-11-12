@@ -1,4 +1,4 @@
-"""Standalone baseline prompt and backwards-compatible Hermes runner."""
+"""Legacy prompt and Hermes helpers; systems.py uses the bounded baseline agent."""
 import json
 import sys
 import threading

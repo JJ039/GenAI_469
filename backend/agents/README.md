@@ -1,6 +1,9 @@
 # Specialist agents
 
-The dashboard runs the baseline separately from these specialists. The combined decision stage is owned by a teammate and is not implemented here. No specialist report is fed into the baseline.
+The dashboard runs a single-agent baseline separately from the specialist workflow.
+The baseline can use the bounded union of specialist tools, but it does not receive
+their reports or use their role-specific prompts and handoffs. The combined
+multi-agent decision stage is owned by a teammate and is not implemented here.
 All amounts use the synthetic scenario's units; these are simulation rules, not
 real banking regulations.
 
@@ -11,6 +14,14 @@ real banking regulations.
 | `risk_manager.run_risk_manager` | `calculate_risk_score`, `simulate_action_outcome` | Current risk proxy and outcomes for three candidate actions |
 | `compliance_officer.run_compliance_officer` | Synthetic checks plus bounded Qwen/Qdrant + local BM25 retrieval | Separate simulation checks and cited regulatory finding for each proposal |
 | `treasury_operations.run_treasury_operations` | Approval ledger and simulated treasury tools | Awaiting authorization, or an approved simulated receipt |
+
+The baseline's model-visible tool catalog combines News, Financial Analyst,
+Risk Manager, Compliance checks and Treasury preparation tools, plus read-only
+Qwen/Qdrant and BM25 regulatory search. It is capped at 15 model turns, 10 host
+tool calls, 5 regulatory retrieval calls and 5 passages per retrieval. This is
+a smaller interaction budget than the theoretical sum of specialist budgets,
+while preserving the same tool access. Treasury approval and ledger execution
+stay host-only.
 
 ## Running specialists
 
