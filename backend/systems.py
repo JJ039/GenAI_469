@@ -124,8 +124,10 @@ def run_system(scenario, system='baseline', client=None, callback=None):
     # --- Phase 4: Compliance Officer (skip if risk != high) ---
     compliance_report = None
     if risk_level == 'high':
-        proposals = []
-        if financial_report:
+        # The Risk Manager hands its compared candidate outcomes to Compliance.
+        handoff = (risk_report or {}).get('compliance_handoff', {})
+        proposals = [deepcopy(p) for p in handoff.get('proposals', [])]
+        if not proposals and financial_report:
             rec = financial_report.get('recommendation', {})
             if rec:
                 proposals.append({'action': rec.get('recommendation'), 'amount': rec.get('amount', 0)})
