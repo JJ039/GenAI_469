@@ -1,159 +1,261 @@
-"""Five live, standalone Compliance RAG cases with explicit ground truth.
+"""Exercise Compliance with coordinator-like inputs from the real agent workflow.
 
-Run this module from the repository root; the exact command is in the agents README.
+Run from the repository root with:
+    .\\frontend\\venv\\Scripts\\python.exe -m backend.agents.test_compliance_rag
 
-Uses the configured LLM, local Qwen model and Qdrant collection. It does not run
-the coordinator or any other agent. Findings are model outputs, so this script
-prints mismatches for review instead of hiding them behind an assertion.
+News Verification and Risk Manager use their real deterministic reports. The
+Financial Analyst's real bounded tool loop is driven by a small scripted model
+runner so this test spends live model calls only on Compliance. Compliance uses
+the configured LLM and the normal Qwen/Qdrant + BM25 retriever. Full output is
+saved to results/compliance_rag_report.txt.
 """
+import contextlib
+import io
 import json
+import sys
+import time
+from pathlib import Path
 
 from backend.agents.compliance_officer import run_compliance_officer
+from backend.agents.financial_analyst import run_financial_analyst
+from backend.agents.news_verification import run_news_verification
+from backend.agents.output_schema import parse_json_object
+from backend.agents.risk_manager import run_risk_manager
 from backend.llm_client import LLMClient
+from backend.agents.main_agent import scenario_inputs
 
 
-GROUND_TRUTH_SOURCE = {
-    "title": "MAS Notice 649 Minimum Liquid Assets and Liquidity Coverage Ratio",
-    "url": "https://www.mas.gov.sg/-/media/mas-media-library/regulation/notices/ppd/notice-649/mas-notice-649-effective-01-september-2026.pdf",
-    "effective_date": "2026-09-01",
-    "provisions": "Part I, paragraphs 13 and 15: 16% minimum Liquid Assets and 8% minimum Tier-1 Liquid Assets against the applicable Qualifying Liabilities.",
-}
+MIN_MODEL_CALL_INTERVAL_SECONDS = 5.0
+_last_model_call = 0.0
 
 
-COMMON_SCOPE = (
-    "For this test, assess only whether the stated position meets the applicable "
-    "Part I MLA percentage requirements in MAS Notice 649 paragraphs 13 and 15. "
-    "Do not infer overall legal compliance beyond this narrow scope."
-)
-
-
-def _facts(all_currency, singapore_dollar):
-    return {
-        "bank_status": "Singapore Reporting Bank, not subject to Part II LCR, and elected Part I MLA with prior written notice to MAS.",
-        "test_scope": COMMON_SCOPE,
-        "all_currency_position": all_currency,
-        "singapore_dollar_position": singapore_dollar,
-    }
-
-
+# Expected outcomes are for the post-run evaluator only. They are never passed
+# to any agent. Cases deliberately vary the kind of action and fact coverage.
 CASES = [
     {
-        "id": "mla_compliant_above_thresholds",
+        "id": "coordinator_liquidity_buffered_draw",
         "expected": "compliant",
-        "facts": _facts(
-            {"qualifying_liabilities": 1000, "liquid_assets": 200, "tier1_liquid_assets": 100},
-            {"qualifying_liabilities": 800, "liquid_assets": 160, "tier1_liquid_assets": 80},
-        ),
-        "explanation": "20% MLA and 10% Tier-1 in both liability bases exceed the 16% and 8% floors.",
-    },
-    {
-        "id": "mla_compliant_at_exact_thresholds",
-        "expected": "compliant",
-        "facts": _facts(
-            {"qualifying_liabilities": 1000, "liquid_assets": 160, "tier1_liquid_assets": 80},
-            {"qualifying_liabilities": 800, "liquid_assets": 128, "tier1_liquid_assets": 64},
-        ),
-        "explanation": "Exactly 16% MLA and 8% Tier-1 in both liability bases meets the stated minimums.",
-    },
-    {
-        "id": "mla_noncompliant_all_currency_below_16_percent",
-        "expected": "non_compliant",
-        "facts": _facts(
-            {"qualifying_liabilities": 1000, "liquid_assets": 150, "tier1_liquid_assets": 80},
-            {"qualifying_liabilities": 800, "liquid_assets": 128, "tier1_liquid_assets": 64},
-        ),
-        "explanation": "All-currency MLA is 15%, below the 16% minimum; other ratios meet their floors.",
-    },
-    {
-        "id": "mla_noncompliant_sgd_tier1_below_8_percent",
-        "expected": "non_compliant",
-        "facts": _facts(
-            {"qualifying_liabilities": 1000, "liquid_assets": 200, "tier1_liquid_assets": 100},
-            {"qualifying_liabilities": 800, "liquid_assets": 160, "tier1_liquid_assets": 56},
-        ),
-        "explanation": "Singapore-dollar Tier-1 liquid assets are 7%, below the 8% minimum.",
-    },
-    {
-        "id": "mla_undetermined_missing_framework_and_currency_breakdown",
-        "expected": "undetermined",
+        "action": "hold",
         "facts": {
-            "test_scope": COMMON_SCOPE,
-            "bank_status": "Singapore bank; whether it is subject to Part II LCR or has elected Part I MLA is not provided.",
-            "reported_liquid_assets": 200,
-            "reported_liabilities": 1000,
-            "missing_facts": [
-                "whether Part I MLA applies to this bank",
-                "all-currency and Singapore-dollar Qualifying Liabilities",
-                "Liquid Assets and Tier-1 Liquid Assets for each required basis",
-            ],
+            "financials": {"capital": 200, "liquidity": 25, "borrowing_limit": 20,
+                           "daily_withdrawals": 10, "forecast_next_7d": 100},
+            "regulations": {"max_draw_facility": 80,
+                "bank_status": "Singapore reporting bank; elected the applicable minimum liquid assets approach with required notice given.",
+                "all_currency_position": {"qualifying_liabilities": 1000, "liquid_assets": 200, "tier1_liquid_assets": 100},
+                "singapore_dollar_position": {"qualifying_liabilities": 800, "liquid_assets": 160, "tier1_liquid_assets": 80}},
         },
-        "explanation": "The legal framework and required currency-specific denominators and asset tiers are missing.",
+        "trigger": "A verified wholesale funding disruption is increasing near-term cash outflows.",
+        "explanation": "The case supplies applicable bank status and both currency-basis asset positions above the stated minimums; the model must still find and cite relevant corpus passages.",
+    },
+    {
+        "id": "coordinator_interbank_funding_shortfall",
+        "expected": "non_compliant",
+        "action": "hold",
+        "facts": {
+            "financials": {"capital": 180, "liquidity": 20, "borrowing_limit": 90,
+                           "daily_withdrawals": 12, "forecast_next_7d": 120},
+            "regulations": {"max_draw_facility": 50,
+                "bank_status": "Singapore reporting bank; elected the applicable minimum liquid assets approach with required notice given.",
+                "all_currency_position": {"qualifying_liabilities": 1000, "liquid_assets": 150, "tier1_liquid_assets": 80},
+                "singapore_dollar_position": {"qualifying_liabilities": 800, "liquid_assets": 128, "tier1_liquid_assets": 64}},
+        },
+        "trigger": "Several counterparties have shortened unsecured funding tenors amid market stress.",
+        "explanation": "The all-currency liquid-asset position is below the applicable stated floor; whether the model identifies and cites the rule is tested through retrieval.",
+    },
+    {
+        "id": "coordinator_large_facility_request_missing_eligibility",
+        "expected": "undetermined",
+        "action": "draw_central_bank_facility",
+        "facts": {
+            "financials": {"capital": 250, "liquidity": 30, "borrowing_limit": 40,
+                           "daily_withdrawals": 15, "forecast_next_7d": 150},
+            "regulations": {"max_draw_facility": 120},
+        },
+        "trigger": "Liquidity stress persists after private funding offers were reduced.",
+        "explanation": "No case-specific evidence establishes eligibility, collateral, solvency assessment or approval.",
+    },
+    {
+        "id": "coordinator_interbank_request_with_unverified_terms",
+        "expected": "undetermined",
+        "action": "borrow_interbank",
+        "facts": {
+            "financials": {"capital": 220, "liquidity": 35, "borrowing_limit": 75,
+                           "daily_withdrawals": 14, "forecast_next_7d": 140},
+            "regulations": {"max_draw_facility": 60},
+        },
+        "trigger": "A market-wide liquidity shock has increased expected depositor withdrawals.",
+        "explanation": "The proposed funding is within the simulation limit, but that limit is not a regulatory source and transaction details are absent.",
+    },
+    {
+        "id": "coordinator_facility_request_under_uncertain_conditions",
+        "expected": "undetermined",
+        "action": "draw_central_bank_facility",
+        "facts": {
+            "financials": {"capital": 160, "liquidity": 18, "borrowing_limit": 25,
+                           "daily_withdrawals": 11, "forecast_next_7d": 110},
+            "regulations": {"max_draw_facility": 95},
+        },
+        "trigger": "A sharp deposit outflow is creating an immediate liquidity shortfall.",
+        "explanation": "The scenario supports urgency but does not establish whether statutory or framework conditions for emergency assistance are met.",
     },
 ]
 
 
-def _scenario(case_id):
-    # The deterministic check passes in every case; the legal test facts are
-    # supplied separately so the RAG finding can be inspected on its own.
-    return {
-        "id": case_id,
-        "financials": {
-            "capital": 1000,
-            "liquidity": 100,
-            "borrowing_limit": 100,
-            "daily_withdrawals": 10,
-        },
-        "regulations": {},
+def _financial_analyst_runner(action):
+    """Drive the actual FA tool loop; derive proposal amount from its tool result."""
+    def respond(prompt):
+        state = json.loads(prompt.split("FINANCIAL_REACT_STATE:\n", 1)[1])
+        successful = [entry["observation"] for entry in state["history"]
+                      if entry.get("observation", {}).get("ok")]
+        tool_names = {item["tool"] for item in successful}
+        if "get_bank_financials" not in tool_names:
+            return json.dumps({"type": "tool_call", "tool": "get_bank_financials", "arguments": {}})
+        if "build_financial_report" not in tool_names:
+            return json.dumps({"type": "tool_call", "tool": "build_financial_report", "arguments": {}})
+
+        report_observation = next(item for item in successful if item["tool"] == "build_financial_report")
+        report = report_observation["result"]
+        amount = report["suggested_funding_by_action"][action]
+        recommendation = {"recommendation": action, "amount": amount,
+                          "confidence": 0.65,
+                          "rationale": ("Maintain the current position pending review; the host forecast shows a funding gap, and this proposal does not itself provide funding." if action == "hold" else "The seven-day cash forecast exceeds available liquidity; this proposed funding amount follows the host-calculated action bound and remains subject to risk and compliance review.")}
+        claim = {"metric": "funding_gap", "value": report["funding_gap"],
+                 "unit": "amount", "observation_id": report_observation["id"]}
+        return json.dumps({"type": "final", "recommendation": recommendation, "claims": [claim]})
+    return respond
+
+
+def _paced_live_runner(client):
+    def respond(prompt):
+        global _last_model_call
+        remaining = MIN_MODEL_CALL_INTERVAL_SECONDS - (time.monotonic() - _last_model_call)
+        if _last_model_call and remaining > 0:
+            time.sleep(remaining)
+        response = client.complete(prompt)
+        _last_model_call = time.monotonic()
+        text = response.get("text", "")
+        if not text.strip():
+            raise RuntimeError("Model returned empty text; check provider output/reasoning token settings.")
+        return text
+    return respond
+
+
+def _run_case(number, case, client):
+    scenario = {
+        "id": case["id"],
+        "trigger": case["trigger"],
+        "financials": case["facts"]["financials"],
+        "regulations": case["facts"]["regulations"],
+        # No external-news package in these fixtures, so the real verifier
+        # reports unverified and the system continues to Financial Analyst.
+        "news_sources": [],
     }
+    print(f"\n{'=' * 88}\nCASE {number}/5: {case['id']}")
+    print("Coordinator scenario supplied to the workflow:")
+    print(json.dumps(scenario_inputs(scenario), indent=2, ensure_ascii=False))
+
+    news = run_news_verification(scenario)
+    print("\n1. News Verification output:")
+    print(json.dumps(news, indent=2, ensure_ascii=False))
+    news_label = news.get("report", {}).get("news_label", "unverified")
+    if news_label == "false":
+        print("Workflow gate: News Verification returned false; the real workflow skips Financial Analyst/Risk Manager and routes directly to Compliance.")
+        # That branch supplies no upstream proposal. Exercise the documented
+        # normal-agent action as a hold, which is what an empty proposal list
+        # would otherwise leave Compliance unable to review.
+        proposal = {"action": "hold", "amount": 0}
+        fa = risk = None
+    else:
+        fa = run_financial_analyst(scenario, llm_runner=_financial_analyst_runner(case["action"]))
+        print("\n2. Financial Analyst output (real tools/validation; scripted test driver):")
+        print(json.dumps(fa, indent=2, ensure_ascii=False))
+        if not fa.get("recommendation"):
+            print("Workflow gate: Financial Analyst did not emit a validated recommendation; Compliance has no coordinator proposal for this case.")
+            return {"evaluated": False, "reason": fa.get("reason", "No accepted recommendation")}
+        liquidity_healthy = fa.get("metrics", {}).get("liquidity_healthy", True)
+        if not liquidity_healthy:
+            print("Workflow gate: liquidity_healthy is false; the real workflow skips Risk Manager and Compliance.")
+            return {"evaluated": False, "reason": "Risk Manager/Compliance skipped by workflow gate"}
+        risk = run_risk_manager(scenario, financial_report=fa)
+        print("\n3. Risk Manager output:")
+        print(json.dumps(risk, indent=2, ensure_ascii=False))
+        risk_level = risk.get("report", {}).get("current_risk", {}).get("risk_level", "low")
+        if risk_level != "high":
+            print(f"Workflow gate: risk level is {risk_level}; the real workflow skips Compliance.")
+            return {"evaluated": False, "reason": f"Risk level {risk_level} skips Compliance"}
+        rec = fa["recommendation"]
+        proposal = {"action": rec["recommendation"], "amount": rec["amount"]}
+
+    # Mirror systems.py's Compliance call. It passes scenario inputs and only
+    # the FA recommendation's action/amount as the proposed coordinator action.
+    facts = scenario_inputs(scenario)
+    compliance_input = {"scenario_facts": facts, "proposals": [proposal]}
+    print("\n4. Exact input passed to Compliance (matches systems.py):")
+    print(json.dumps(compliance_input, indent=2, ensure_ascii=False))
+    result = run_compliance_officer(
+        facts,
+        llm_runner=_paced_live_runner(client),
+        proposals=[proposal],
+    )
+    report = result["report"]
+    finding = report["regulatory_findings"][0]
+    budget = finding["budget"]
+    complete = bool(finding.get("protocol_history")) and bool(budget["retrieval_calls"])
+    within_budget = (budget["model_turns"] <= 3 and budget["retrieval_calls"] <= 3
+                     and len(finding["evidence"]) <= budget["retrieval_calls"] * 5)
+    matched = complete and within_budget and finding["finding"] == case["expected"]
+
+    print("\n5. Compliance output:")
+    print("Synthetic simulation check (separate from regulatory RAG finding):")
+    print(json.dumps(report["synthetic_checks"], indent=2, ensure_ascii=False))
+    print("Regulatory RAG finding:")
+    print(json.dumps(finding, indent=2, ensure_ascii=False))
+    print("\nPost-run evaluator only (not supplied to agents):")
+    print(f"Expected: {case['expected']} — {case['explanation']}")
+    print(f"Model finding: {finding['finding']}")
+    print(f"Protocol/retrieval complete: {complete}; within configured budgets: {within_budget}")
+    print("Outcome match: " + ("PASS" if matched else "REVIEW / MISMATCH"))
+    return {"evaluated": True, "matched": matched, "finding": finding["finding"],
+            "expected": case["expected"], "retrieval_calls": budget["retrieval_calls"]}
+
+
+class _Tee(io.TextIOBase):
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, value):
+        for stream in self.streams:
+            stream.write(value)
+            stream.flush()
+        return len(value)
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
 
 
 def main():
-    client = LLMClient()
-    runner = lambda prompt: client.complete(prompt)["text"]
-    passed = 0
-
-    print("Compliance-only live RAG evaluation (five cases)")
-    print("Ground truth: " + GROUND_TRUTH_SOURCE["title"])
-    print("Expected rule: " + GROUND_TRUTH_SOURCE["provisions"])
-    print("Each run can use up to 3 model turns and 3 retrieval calls.")
-
-    for number, case in enumerate(CASES, start=1):
-        proposal = {
-            "action": "hold",
-            "amount": 0,
-            "description": "Maintain the current liquid asset position described in scenario_facts; evaluate only the stated MAS Notice 649 Part I MLA test scope.",
-        }
-        result = run_compliance_officer(
-            _scenario(case["id"]),
-            llm_runner=runner,
-            proposals=[proposal],
-            scenario_facts=case["facts"],
-        )
-        report = result["report"]
-        finding = report["regulatory_findings"][0]
-        budget = finding["budget"]
-        retrieval_limit_ok = (
-            budget["retrieval_calls"] <= 3
-            and len(finding["evidence"]) <= budget["retrieval_calls"] * 5
-        )
-        matched = finding["finding"] == case["expected"] and retrieval_limit_ok
-        passed += int(matched)
-
-        print(f"\n{'=' * 76}\nCASE {number}/5: {case['id']}")
-        print("Ground truth: " + case["expected"] + " — " + case["explanation"])
-        print("Synthetic simulation check: " + json.dumps(report["synthetic_checks"][0], ensure_ascii=False))
-        print("RAG determination: " + finding["finding"])
-        print("Rationale: " + finding["rationale"])
-        print("Missing facts: " + json.dumps(finding["missing_facts"], ensure_ascii=False))
-        print("Budget: " + json.dumps(budget))
-        print("Expected match: " + ("PASS" if matched else "REVIEW / MISMATCH"))
-        print("Citations:")
-        print(json.dumps(finding["citations"], indent=2, ensure_ascii=False))
-        print("Retrieved RAG passages:")
-        print(json.dumps(finding["evidence"], indent=2, ensure_ascii=False))
-
-    print(f"\nSummary: {passed}/5 matched expected outcomes and retrieval limits.")
-    print("Review every mismatch, passage and citation; model findings are not legal advice or authorization.")
+    report_path = Path(__file__).resolve().parents[2] / "results" / "compliance_rag_report.txt"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    with report_path.open("w", encoding="utf-8") as report_file:
+        with contextlib.redirect_stdout(_Tee(sys.stdout, report_file)):
+            print("Compliance RAG workflow simulation (five coordinator-like cases)")
+            print("Live model calls are made for Compliance only. Financial Analyst uses its real bounded tools and validation with a scripted test driver.")
+            print("News Verification and Risk Manager use their real deterministic paths; no upstream live-model calls are consumed.")
+            print("Each Compliance action is bounded to 3 model turns, 3 retrievals and 5 passages per retrieval.")
+            print(f"Full report: {report_path}")
+            client = LLMClient()
+            results = []
+            for number, case in enumerate(CASES, start=1):
+                try:
+                    results.append(_run_case(number, case, client))
+                except Exception as exc:
+                    print(f"\nCASE ERROR: {type(exc).__name__}: {exc}")
+                    results.append({"evaluated": False, "reason": f"{type(exc).__name__}: {exc}"})
+            evaluated = [item for item in results if item.get("evaluated")]
+            passed = sum(bool(item.get("matched")) for item in evaluated)
+            print(f"\nSummary: {passed}/{len(evaluated)} evaluated cases matched; {len(results) - len(evaluated)} skipped/failed.")
+            print("Expected outcomes are evaluator metadata only. Review the displayed RAG evidence and citations; this harness does not authorize actions.")
 
 
 if __name__ == "__main__":
