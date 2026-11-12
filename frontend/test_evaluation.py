@@ -15,7 +15,7 @@ from backend.agents.output_schema import HermesBankDecision
 from backend.llm_client import LLMClient
 from backend.mock_client import MockClient
 from backend.systems import run_system
-from backend.evaluation import evaluate
+from backend.evaluation import evaluate, evaluate_tool_allowlist, evaluate_workflow
 from backend.reporting import aggregate
 from backend.scenarios.validation import load_scenarios, validate_scenario
 from backend.scripts.run_evaluation import main
@@ -91,7 +91,52 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(result['treasury']['status'],'awaiting_authorization')
         self.assertFalse(result['execution_authorized'])
         self.assertFalse(any(t['tool'].endswith('.approve') for t in result['telemetry']['tools']))
-        self.assertEqual(result['telemetry']['llm_calls'],6)
+        self.assertEqual(result['telemetry']['llm_calls'],10)
+        telemetry = result['metrics']['agent_telemetry']
+        self.assertGreaterEqual(telemetry['news_verification']['tool_calls'],3)
+        self.assertEqual(telemetry['news_verification']['valid_tool_calls'],
+                         telemetry['news_verification']['tool_calls'])
+        self.assertGreaterEqual(telemetry['financial_analyst']['tool_calls'],3)
+        self.assertEqual(telemetry['financial_analyst']['invalid_tool_calls'],0)
+        self.assertIn('treasury_operations', telemetry)
+        self.assertFalse(result['treasury']['execution_plan']['execution_authorized'])
+        self.assertTrue(result['metrics']['tool_allowlist']['valid'])
+        self.assertEqual(result['metrics']['tool_allowlist']['violation_count'], 0)
+        workflow = result['metrics']['workflow']
+        self.assertTrue(workflow['valid'])
+        self.assertEqual(workflow['actual_stages'], [
+            'news_verification', 'financial_analyst', 'risk_manager',
+            'compliance_officer', 'treasury_operations'])
+        self.assertTrue(workflow['handoffs']['risk_received_financial_recommendation'])
+        self.assertTrue(workflow['handoffs']['compliance_received_financial_recommendation'])
+        self.assertTrue(workflow['handoffs']['treasury_waited_for_authorization'])
+
+    def test_workflow_reports_missing_and_out_of_order_stages(self):
+        result=run_system(self.scenarios[0], 'multi_agent', MockClient())
+        result['trace'] = list(reversed(result['trace']))
+        workflow=evaluate_workflow(result)
+        self.assertFalse(workflow['valid'])
+        self.assertEqual(workflow['violation_count'], 1)
+        self.assertEqual(workflow['violations'][0]['kind'], 'stage_order')
+
+    def test_workflow_is_not_applicable_to_baseline(self):
+        result=run_system(self.scenarios[0], 'baseline', MockClient())
+        workflow=result['metrics']['workflow']
+        self.assertFalse(workflow['applicable'])
+        self.assertIsNone(workflow['valid'])
+
+    def test_tool_allowlist_reports_disallowed_agent_tool(self):
+        result=run_system(self.scenarios[0], 'multi_agent', MockClient())
+        result['telemetry']['tools'].append({
+            'agent': 'news_verification',
+            'tool': 'tools.compliance_tools.check_compliance',
+            'valid': True,
+        })
+        allowlist=evaluate_tool_allowlist(result)
+        self.assertFalse(allowlist['valid'])
+        self.assertEqual(allowlist['violation_count'], 1)
+        self.assertEqual(allowlist['violations'][0]['agent'], 'news_verification')
+        self.assertEqual(allowlist['violations'][0]['tool'], 'tools.compliance_tools.check_compliance')
 
     def test_pending_reports_do_not_become_failed_decisions_or_paired_scores(self):
         records=[]
@@ -116,6 +161,16 @@ class EvaluationTests(unittest.TestCase):
         b=evaluate({'status':'completed','decision':decision},scenario)
         self.assertLess(a['confidence_weighted_score'],b['confidence_weighted_score'])
         self.assertEqual(a['confidence_weighted_score'],-1.8)
+        self.assertEqual(a['confidence']['bucket'], 4)
+        self.assertAlmostEqual(a['confidence_brier_error'], 0.81)
+
+    def test_report_signature_and_efficiency_metrics_are_recorded(self):
+        result=run_system(self.scenarios[1], 'multi_agent', MockClient())
+        self.assertIsInstance(result['metrics']['report_signature'], str)
+        financial=result['metrics']['agent_telemetry']['financial_analyst']
+        self.assertGreater(financial['steps'], 0)
+        self.assertGreater(financial['step_efficiency'], 0)
+        self.assertEqual(financial['tool_call_accuracy'], 1.0)
 
     def test_parsing_aliases_and_bounded_retry(self):
         decision={'news_label':'unverified','action':'hold_position','amount':0,'confidence':0.5,'rationale':'Wait for evidence.'}

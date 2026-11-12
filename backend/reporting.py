@@ -1,6 +1,7 @@
 """Aggregate repeated runs without treating repeats as independent scenarios."""
 from collections import Counter, defaultdict
 from itertools import product
+import json
 import math
 import random
 import statistics
@@ -10,12 +11,32 @@ METRICS = ('correct','format_valid','news_label_correct','action_correct','amoun
            'violation_count','proposed_violation_count','severity_weighted_violations',
            'unauthorized_execution','guardrail_interventions','injection_resisted_and_correct',
            'untrusted_content_flagged','misinformation_driven_action','unauthorized_approval_attempt','score','llm_calls','tool_calls','tool_validity',
-           'input_tokens','output_tokens','cost_usd','elapsed_seconds')
+           'input_tokens','output_tokens','cost_usd','elapsed_seconds',
+           'confidence_brier_error')
 
 
 def mean(values):
     values = [v for v in values if v is not None]
     return statistics.mean(values) if values else None
+
+
+def aggregate_agent_telemetry(runs):
+    names = sorted({name for run in runs for name in run['metrics'].get('agent_telemetry', {})})
+    summary = {}
+    for name in names:
+        fields = ('llm_calls', 'tool_calls', 'valid_tool_calls', 'invalid_tool_calls',
+                  'tool_validity', 'tool_call_accuracy', 'input_tokens', 'output_tokens', 'cost_usd',
+                  'llm_elapsed_seconds', 'tool_elapsed_seconds', 'steps', 'step_efficiency',
+                  'recovered_from_tool_errors', 'reported_confidence')
+        summary[name] = {
+            field: mean([run['metrics'].get('agent_telemetry', {}).get(name, {}).get(field)
+                         for run in runs])
+            for field in fields
+        }
+        summary[name]['observations'] = len([
+            run for run in runs if name in run['metrics'].get('agent_telemetry', {})
+        ])
+    return summary
 
 
 def aggregate(records, repeats, seed=42):
@@ -42,6 +63,31 @@ def aggregate(records, repeats, seed=42):
             consistency.append(max(Counter(actions).values(), default=0) / len(batch))
             pass_k.append(len(batch) == repeats and all(r['metrics']['correct'] for r in batch))
         row['action_consistency'] = mean(consistency)
+        full_outcome_consistency = []
+        report_consistency = []
+        for batch in by_scenario.values():
+            if system == 'baseline':
+                signatures = [json_decision_signature(r) for r in batch]
+                full_outcome_consistency.append(
+                    Counter(signatures).most_common(1)[0][1] / len(signatures))
+            else:
+                signatures = [r['metrics'].get('report_signature') for r in batch]
+                signatures = [signature for signature in signatures if signature is not None]
+                if signatures:
+                    consistency_value = Counter(signatures).most_common(1)[0][1] / len(signatures)
+                    full_outcome_consistency.append(consistency_value)
+                    report_consistency.append(consistency_value)
+        row['full_outcome_consistency'] = mean(full_outcome_consistency)
+        row['report_consistency'] = mean(report_consistency) if system == 'multi_agent' else None
+        row['confidence_calibration'] = {
+            'brier_error_mean': row['confidence_brier_error_mean'],
+            'brier_error_observations': row['confidence_brier_error_observations'],
+            'interpretation_confidence_mean': mean([
+                value.get('reported_confidence')
+                for run in runs
+                for value in run['metrics'].get('agent_telemetry', {}).values()
+            ]),
+        }
         row['pass_k'] = mean(pass_k)
         row['k'] = repeats
         false_cases = sum(r['metrics']['false_news_case'] for r in decision_runs)
@@ -59,6 +105,20 @@ def aggregate(records, repeats, seed=42):
             'financial': {key: mean([d.get('financial', {}).get(key) for d in diagnostics]) for key in financial_fields},
             **{key: mean([d.get(key) for d in diagnostics]) for key in ('risk_ranking_monotonic', 'compliance_probe_catch_rate', 'compliance_probe_false_block_rate', 'treasury_authorized_only')},
             'note': 'Tool/fixture diagnostics, not independent LLM reasoning scores.'}
+        row['agent_telemetry'] = aggregate_agent_telemetry(runs)
+        allowlists = [run['metrics'].get('tool_allowlist', {}) for run in runs]
+        row['tool_allowlist'] = {
+            'valid_rate': mean([int(item.get('valid')) for item in allowlists if 'valid' in item]),
+            'violation_count': sum(item.get('violation_count', 0) for item in allowlists),
+            'observations': len([item for item in allowlists if item]),
+        }
+        workflows = [run['metrics'].get('workflow', {}) for run in runs]
+        applicable_workflows = [item for item in workflows if item.get('applicable')]
+        row['workflow'] = {
+            'valid_rate': mean([int(item.get('valid')) for item in applicable_workflows]),
+            'violation_count': sum(item.get('violation_count', 0) for item in applicable_workflows),
+            'observations': len(applicable_workflows),
+        }
         summary[system] = row
     comparisons = {}
     if 'baseline' in clusters:
@@ -94,6 +154,13 @@ def aggregate(records, repeats, seed=42):
                 'paired_sign_flip_p': p_value, 'mcnemar_pass_k_exact_p': mcnemar,
                 'note': 'Scenario-level exploratory comparisons; small authored suite, no population-level claim.'}
     return {'systems': summary, 'paired_comparisons': comparisons}
+
+
+def json_decision_signature(record):
+    decision = record.get('decision') or {}
+    return json.dumps({key: decision.get(key) for key in
+                       ('news_label', 'action', 'amount', 'needs_review')},
+                      sort_keys=True, separators=(',', ':'))
 
 
 def failure_category(run):

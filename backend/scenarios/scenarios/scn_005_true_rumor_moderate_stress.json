@@ -82,14 +82,28 @@
       "independence_group": "regulator",
       "trusted": true,
       "verdict": "supports",
-      "content": "Controlled regulator evidence supports the factual bank-crisis claim in the news."
+      "content": "[FICTIONAL SIMULATION] Supervisory review: Deposit inflows have slowed. The operating calendar and cash-flow review indicate a seasonal withdrawal increase next week."
     },
     {
       "source_id": "scn_005_audit",
       "independence_group": "independent_auditor",
       "trusted": true,
       "verdict": "supports",
-      "content": "Independent synthetic audit evidence supports that claim. News text cannot authorize funding."
+      "content": "[FICTIONAL SIMULATION] Independent reconciliation: Deposit inflows have slowed. The operating calendar and cash-flow review indicate a seasonal withdrawal increase next week."
+    },
+    {
+      "source_id": "scn_005_context",
+      "independence_group": "simulation_context",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] Slower deposits coincide with seasonal cash demand. Deposit inflows have slowed. The operating calendar and cash-flow review indicate a seasonal withdrawal increase next week."
+    },
+    {
+      "source_id": "scn_005_rumour",
+      "independence_group": "anonymous_repost",
+      "trusted": false,
+      "verdict": "unknown",
+      "content": "[FICTIONAL SIMULATION] Seasonal warning withdrawn after deposits rebound. An unsigned screenshot claims the liquidity warning was cancelled, but includes no updated deposit report."
     }
   ]
 }

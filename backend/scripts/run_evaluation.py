@@ -70,10 +70,14 @@ def main(argv=None):
             print(f"[{index}/{len(jobs)}] {scenario['id']} {system} repeat={repeat}: {result['status']}, correct={result['metrics']['correct']}", flush=True)
     rows=[]
     for r in records:
-        rows.append({'scenario_id':r['scenario_id'],'repeat':r['repeat'],'system':r['system'],
-                     'status':r['status'],'error':r.get('error'),'action':r.get('decision',{}).get('action'),
-                     **{key:value for key,value in r['metrics'].items() if not isinstance(value,(dict,list))},
-                     **{'financial_'+key:value for key,value in r['metrics'].get('agent_metrics',{}).get('financial',{}).items()}})
+        row = {'scenario_id':r['scenario_id'],'repeat':r['repeat'],'system':r['system'],
+               'status':r['status'],'error':r.get('error'),'action':r.get('decision',{}).get('action'),
+               **{key:value for key,value in r['metrics'].items() if not isinstance(value,(dict,list))},
+               **{'financial_'+key:value for key,value in r['metrics'].get('agent_metrics',{}).get('financial',{}).items()}}
+        for agent, values in r['metrics'].get('agent_telemetry', {}).items():
+            row.update({f'agent_{agent}_{key}': value for key, value in values.items()
+                        if not isinstance(value, list)})
+        rows.append(row)
     with (output/'metrics.csv').open('w',newline='',encoding='utf-8') as f:
         writer=csv.DictWriter(f,fieldnames=list(dict.fromkeys(key for row in rows for key in row)));writer.writeheader();writer.writerows(rows)
     report=aggregate(records,args.runs,args.seed)

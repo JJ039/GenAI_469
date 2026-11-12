@@ -2,7 +2,7 @@
 from copy import deepcopy
 import time
 from backend.llm_client import LLMClient
-from backend.telemetry import TOOL_LOG
+from backend.telemetry import TOOL_AGENT, TOOL_LOG
 from backend.agents.main_agent import build_prompt, scenario_inputs
 from backend.agents.output_schema import HermesBankDecision, parse_json_object
 from backend.agents.news_verification import run_news_verification
@@ -55,6 +55,7 @@ class RunContext:
 
     def agent(self, name, function, scenario, **kwargs):
         self.role = name
+        TOOL_AGENT.set(name)
         output = function(scenario, llm_runner=self.ask, **kwargs)
         call = self.calls[-1] if self.calls and self.calls[-1]['role'] == name else {}
         self.agent_results[name] = {'status': 'completed', 'output': deepcopy(output)}
@@ -84,55 +85,94 @@ def run_system(scenario, system='baseline', client=None, callback=None):
     inputs = deepcopy(scenario_inputs(scenario))
     result = {'system': system, 'status': 'running', 'agents': {}, 'interventions': [],
               'execution_authorized': False, 'treasury': {'executed': False}}
-    result['agents'] = ctx.agent_results
+    result['trace'] = ctx.trace
     start = time.monotonic()
-    token = TOOL_LOG.set(ctx.tools)
-    try:
-        if system == 'baseline':
-            ctx.role = 'baseline'
-            raw = ctx.ask(build_prompt(inputs))
-            result['proposed_decision'] = deepcopy(raw)
-            result['decision'] = HermesBankDecision(**raw).model_dump()
-            ctx.emit('main_agent', result['decision'], prompt=ctx.calls[-1]['prompt'], model=ctx.calls[-1].get('model'))
-        else:
-            reports = {}
-            reports['news_verification'] = ctx.agent('news_verification', run_news_verification, inputs)
-            # Missing financial data is an explicit report, not fabricated metrics.
-            try:
-                get_bank_financials(inputs)
-                sufficient = True
-            except (KeyError, TypeError, ValueError):
-                sufficient = False
-            if sufficient:
-                reports['financial_analyst'] = ctx.agent('financial_analyst', run_financial_analyst, inputs)
-                reports['risk_manager'] = ctx.agent('risk_manager', run_risk_manager, inputs,
-                                                     financial_report=reports['financial_analyst'])
-            else:
-                for name in ('financial_analyst', 'risk_manager'):
-                    reports[name] = {'agent': name, 'status': 'needs_review', 'reason': 'Required financial data are missing or invalid.'}
-                    ctx.emit(name, reports[name])
-            # Review the financial specialist's recommendation, not a combined decision.
-            recommendation = reports.get('financial_analyst', {}).get('recommendation')
-            proposals = [{'action': recommendation['recommendation'], 'amount': recommendation['amount']}] if recommendation else []
-            reports['compliance_officer'] = ctx.agent(
-                'compliance_officer', run_compliance_officer, inputs, proposals=proposals)
-            reports['treasury_operations'] = ctx.agent(
-                'treasury_operations', run_treasury_operations, inputs)
-            result['treasury'] = reports['treasury_operations']
-            result['agents'] = {name: {'status': 'completed', 'output': output} for name, output in reports.items()}
-            result['note'] = 'Specialist reports only. Combined decision and authorization await teammate integration.'
-        result['status'] = 'completed'
-    except Exception as exc:
-        result.update(status='error', error=str(exc))
-        if ctx.role == 'baseline' and ctx.last_object is not None:
-            result.setdefault('proposed_decision', deepcopy(ctx.last_object))
-        ctx.emit(ctx.role, {'status': 'error', 'error': str(exc)})
-    finally:
-        TOOL_LOG.reset(token)
-    if system != 'baseline':
-        result['decision_status'] = 'awaiting_integration'
+
+    def log(source, output):
+        ctx.trace.append({'source': source, 'stage': 'multi_agent', 'output': deepcopy(output)})
+        if callback:
+            callback({'state': 'running', 'source': source, 'stage': 'multi_agent'})
+
+    def get_news_label(report):
+        return report.get('report', {}).get('news_label', 'unverified')
+
+    # --- Phase 1: Receive scenario, run News Verification ---
+    news_verif = ctx.agent('news_verification', run_news_verification, inputs)
+    log('news_verification', news_verif)
+    news_label = get_news_label(news_verif)
+
+    # --- Phase 2: Financial Analyst (skip if news_label == 'false') ---
+    financial_report = None
+    if news_label != 'false':
+        financial_report = ctx.agent('financial_analyst', run_financial_analyst, inputs)
+        log('financial_analyst', financial_report)
+        liquidity_healthy = financial_report.get('metrics', {}).get('liquidity_healthy', True)
+    else:
+        # news_label == 'false': no need to check liquidity go straight to Compliance
+        liquidity_healthy = False
+
+    # --- Phase 3: Risk Manager (skip if liquidity not healthy) ---
+    risk_report = None
+    if liquidity_healthy:
+        risk_report = ctx.agent('risk_manager', run_risk_manager, inputs,
+                                financial_report=financial_report)
+        log('risk_manager', risk_report)
+        risk_level = risk_report.get('report', {}).get('current_risk', {}).get('risk_level', 'low')
+    else:
+        risk_level = 'low'
+
+    # --- Phase 4: Compliance Officer (skip if risk != high) ---
+    compliance_report = None
+    if risk_level == 'high':
+        proposals = []
+        if financial_report:
+            rec = financial_report.get('recommendation', {})
+            if rec:
+                proposals.append({'action': rec.get('recommendation'), 'amount': rec.get('amount', 0)})
+        compliance_report = ctx.agent('compliance_officer', run_compliance_officer, inputs,
+                                      proposals=proposals)
+        log('compliance_officer', compliance_report)
+        findings = compliance_report.get('report', {}).get('regulatory_findings', [])
+        compliant = findings[0].get('finding', 'undetermined') if findings else 'undetermined'
+    else:
+        compliant = 'true'
+
+    # --- Phase 5: Treasury Operations (skip if compliance == 'false') ---
+    treasury_op = None
+    if compliant != 'false':
+        proposals = []
+        if financial_report:
+            rec = financial_report.get('recommendation', {})
+            if rec:
+                proposals.append({'action': rec.get('recommendation'), 'amount': rec.get('amount', 0)})
+        treasury_op = ctx.agent('treasury_operations', run_treasury_operations, inputs,
+                                proposal=proposals[0] if proposals else None,
+                                approval_id='simulated_host_approval')
+        log('treasury_operations', treasury_op)
+    else:
+        treasury_op = {'agent': 'treasury_operations', 'status': 'VETOED',
+                       'executed': False,
+                       'reason': 'Compliance officer returned non-compliant finding. Decision held. '
+                                 'Human intervention raised.'}
+        result['interventions'].append({'stage': 'compliance', 'rule': 'Compliance veto',
+                                        'action': 'hold', 'amount': 0, 'rationale': 'Non-compliant proposal'})
+        log('treasury_operations', treasury_op)
+
+    # --- Phase 6: Assemble final decision and score ---
+    result['treasury'] = treasury_op
+    result['agents'] = {name: {'status': 'completed', 'output': output}
+                        for name, output in {
+                            'news_verification': news_verif,
+                            'financial_analyst': financial_report,
+                            'risk_manager': risk_report,
+                            'compliance_officer': compliance_report,
+                            'treasury_operations': treasury_op,
+                        }.items() if output is not None}
+
+    # Score using the shared evaluator
     result['trace'] = ctx.trace
     result['telemetry'] = ctx.metrics(time.monotonic() - start)
     result['metrics'] = evaluate(result, scenario)
-    result.update({key: result['metrics'][key] for key in ('score','max_score','normalized')})
+    result.update({key: result['metrics'][key] for key in ('score', 'max_score', 'normalized')})
+    result['status'] = 'completed'
     return result

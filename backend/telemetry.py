@@ -4,6 +4,7 @@ from functools import wraps
 import time
 
 TOOL_LOG = ContextVar("tool_log", default=None)
+TOOL_AGENT = ContextVar("tool_agent", default=None)
 
 
 def tracked_tool(function):
@@ -11,7 +12,8 @@ def tracked_tool(function):
     def wrapper(*args, **kwargs):
         log = TOOL_LOG.get()
         start = time.monotonic()
-        event = {"tool": function.__module__ + "." + function.__name__}
+        event = {"tool": function.__module__ + "." + function.__name__,
+                 "agent": TOOL_AGENT.get()}
         try:
             result = function(*args, **kwargs)
             event["valid"] = True

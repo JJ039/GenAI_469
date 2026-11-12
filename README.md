@@ -105,7 +105,9 @@ Decision-level ablation is deferred until integration.
 The 13 version-2 scenarios have controlled evidence fixtures, canonical action
 names, explicit missing-data expectations, and injection cases. News retrieval
 is simulated, and source trust/verdict metadata are supplied by the scenario
-designer, equally visible to the baseline. Risk is a cash-coverage proxy, not a
+designer, equally visible to the baseline. News Verification also validates
+source IDs, independence groups, and trust metadata, and reports instruction-like
+content as untrusted and ignored. Risk is a cash-coverage proxy, not a
 probability of bank failure. Rules are synthetic funding limits, not a complete
 banking regulatory model. See [experiment design](docs/EXPERIMENT.md) and
 [agent interfaces](backend/agents/README.md). See [validation and pilot reflection](docs/VALIDATION.md) for observed successes, failures and limitations.
@@ -128,3 +130,21 @@ The analyst now uses bounded model-selected financial tools and validates cited
 numeric claims before releasing a recommendation. See [design, metrics and offline
 benchmark](docs/FINANCIAL_ANALYST.md). This adds inference calls to the financial
 stage; the standalone baseline and teammate-owned integration boundary are unchanged.
+Day-based phrases such as `7-day horizon`, `7-day period`, `7-day window`, and
+`over 7 days` are treated as forecast-horizon metadata rather than funding
+amounts, preventing valid recommendations from being blocked by their time frame.
+
+## Latest verification
+
+Run the local checks with:
+
+```powershell
+.\frontend\venv\Scripts\python.exe -B -m unittest discover -s frontend -p "test_*.py" -v
+.\frontend\venv\Scripts\python.exe backend/scripts/check_financial_guardrails.py
+```
+
+The regression suite covers the baseline, specialist reports, API behavior,
+prompt-injection handling, Treasury approval boundaries, and Financial Analyst
+numeric grounding. The planted-error benchmark is synthetic detector evidence,
+not a live-model hallucination rate. Treat real model runs separately and review
+their saved `runs.jsonl` traces.

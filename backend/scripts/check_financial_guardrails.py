@@ -8,9 +8,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
-from backend.agents.financial_react import execute_financial_tool
+from tools.financial_tools import execute_financial_tool
 from backend.scenarios.validation import load_scenarios
-from tools.financial_validation import check_financial_hallucinations
+from tools.financial_tools import check_financial_hallucinations
 
 
 def benchmark(scenarios):

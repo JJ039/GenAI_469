@@ -93,9 +93,10 @@ def start_run():
                 task_trace.append({'stage':'observe','source':'shared_evaluator','output':{
                     'baseline':baseline['metrics'],'multi_agent':secondary['metrics']}})
                 both_failed = baseline['status']=='error' and secondary['status']=='error'
-                task_status = 'error' if both_failed else 'completed'
+                was_cancelled = task_status == 'cancelling'
+                task_status = 'cancelled' if was_cancelled else 'error' if both_failed else 'completed'
                 task_error = ('Both lines failed. Baseline: ' + baseline.get('error','') + '; Multi-agent: ' + secondary.get('error','')) if both_failed else None
-                task_message = 'Evaluation finished. Execution is simulated only.'
+                task_message = 'Run cancelled.' if was_cancelled else 'Evaluation finished. Execution is simulated only.'
         except Exception as exc:
             with task_lock:
                 task_status='error'
@@ -114,6 +115,24 @@ def get_task(run_id):
                        result=deepcopy(task_result),error=task_error,message=task_message,
                        elapsed_seconds=max(0,int(time.monotonic()-task_stage_started_at)))
 
+@app.post('/api/cancel')
+def cancel_run():
+    """Cancel the current evaluation run."""
+    global task_status, task_message, task_stage_started_at
+    data = request.get_json(silent=True)
+    requested_task_id = data.get('task_id') if isinstance(data, dict) else None
+    with task_lock:
+        if task_status != 'running':
+            return jsonify(error='There is no active run to cancel.'), 409
+        if requested_task_id is not None and str(requested_task_id) != str(task_id):
+            return jsonify(error='This run has already changed. Refresh the page and try again.'), 409
+        task_status = 'cancelling'
+        task_message = 'Cancellation requested. Waiting for the current model call to finish.'
+        task_stage_started_at = time.monotonic()
+    from backend.agents.main_agent import set_cancel
+    set_cancel()
+    return jsonify(status='cancelling', message=task_message), 202
+
 
 if __name__ == '__main__':
-    app.run(port=5000,debug=True)
+    app.run(port=5000,debug=False)
