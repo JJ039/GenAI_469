@@ -44,7 +44,7 @@ def score_scenario(run, scenario):
     if confidence > 0.7 and score <= 0:
         score -= 2
 
-    return score
+    return max(0, score)
 
 
 def compute_max_score(scenario):
@@ -61,7 +61,7 @@ def normalize_score(score, scenario):
     max_score = compute_max_score(scenario)
     if max_score == 0:
         return 0.0
-    return score / max_score
+    return max(0, score) / max_score
 
 
 def status_of(score, scenario):

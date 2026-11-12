@@ -137,19 +137,37 @@ def run_system(scenario, system='baseline', client=None, callback=None):
             checks = compliance.get('synthetic_checks', [])
             proposal = proposals[0] if proposals else None
             blockers = []
+            compliance_basis = 'unavailable'
             if proposal is None:
                 blockers.append('No validated financial recommendation is available.')
             else:
                 matching_checks = [check for check in checks if check.get('proposal') == proposal]
                 matching_findings = [finding for finding in findings if finding.get('proposal') == proposal]
-                if not matching_checks or any(check.get('compliant') is not True for check in matching_checks):
+                scenario_limits_passed = bool(matching_checks) and all(
+                    check.get('compliant') is True for check in matching_checks
+                )
+                if not scenario_limits_passed:
                     blockers.append('Proposal did not pass the simulation compliance checks.')
-                if not matching_findings:
-                    blockers.append('No regulatory finding was produced for the selected proposal.')
-                for finding in matching_findings:
-                    if finding.get('finding') != 'compliant' or finding.get('missing_facts'):
-                        blockers.append('Regulatory review ' + str(finding.get('finding', 'undetermined'))
-                                        + ': ' + finding.get('rationale', 'Evidence requires review.'))
+                # A supported regulatory prohibition remains a hard blocker. When
+                # corpus retrieval or interpretation is indeterminate, fall back
+                # to the explicit synthetic scenario limits, without labeling that
+                # result as regulatory clearance.
+                prohibited = [item for item in matching_findings
+                              if item.get('finding') == 'non_compliant']
+                supported_clearance = (len(matching_findings) == 1
+                                       and matching_findings[0].get('finding') == 'compliant'
+                                       and not matching_findings[0].get('missing_facts'))
+                if prohibited:
+                    for finding in prohibited:
+                        blockers.append('Regulatory review non_compliant: '
+                                        + finding.get('rationale', 'A cited regulatory prohibition was found.'))
+                    compliance_basis = 'regulatory_prohibition'
+                elif supported_clearance:
+                    compliance_basis = 'regulatory_corpus'
+                elif scenario_limits_passed:
+                    compliance_basis = 'scenario_limits_only'
+                else:
+                    compliance_basis = 'scenario_limits_failed'
             for reason in blockers:
                 result['interventions'].append({
                     'stage': 'compliance', 'rule': 'Compliance review required',
@@ -162,10 +180,12 @@ def run_system(scenario, system='baseline', client=None, callback=None):
             result['compliance_blockers'] = blockers
             result['treasury'] = reports['treasury_operations']
             result['agents'] = {name: {'status': 'completed', 'output': output} for name, output in reports.items()}
-            team_report = build_team_report(reports, proposal, blockers)
+            team_report = build_team_report(reports, proposal, blockers,
+                                            compliance_basis=compliance_basis)
             result['report'] = team_report
+            result['compliance_basis'] = compliance_basis
             result['decision'] = team_report['decision']
-            result['decision_status'] = 'needs_review' if team_report['blockers'] else 'decided'
+            result['decision_status'] = 'needs_review' if team_report['decision']['needs_review'] else 'decided'
             result['note'] = team_report['summary']
             ctx.emit('crisis_coordinator', {'agent': 'crisis_coordinator',
                      'status': result['decision_status'], 'report': team_report,
