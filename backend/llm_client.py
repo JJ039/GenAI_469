@@ -24,7 +24,7 @@ def load_credentials():
             continue
         for line in path.read_text(encoding="utf-8").splitlines():
             key, sep, value = line.strip().partition("=")
-            if sep and key in {"OPENROUTER_API_KEY", "GOOGLE_API_KEY", "LLM_MODEL", "LLM_TRANSPORT", "LLM_PROVIDER", "HERMES_EXECUTABLE", "LLM_MAX_TOKENS", "LLM_REASONING_EFFORT"}:
+            if sep and key in {"OPENROUTER_API_KEY", "GROQ_API_KEY", "GOOGLE_API_KEY", "LLM_MODEL", "LLM_TRANSPORT", "LLM_PROVIDER", "HERMES_EXECUTABLE", "LLM_MAX_TOKENS", "LLM_REASONING_EFFORT"}:
                 cleaned = value.strip().strip('"').strip("'")
                 if cleaned:
                     os.environ.setdefault(key, cleaned)
@@ -33,9 +33,10 @@ def load_credentials():
 class LLMClient:
     def __init__(self, model=None, temperature=0.1, transport=None, timeout=180, max_tokens=None, reasoning_effort=None):
         load_credentials()
-        self.model = model or os.environ.get("LLM_MODEL", DEFAULT_MODEL)
         self.temperature = temperature
         self.transport = transport or os.environ.get("LLM_TRANSPORT", "openrouter")
+        default_model = "qwen3:1.7b" if self.transport == "ollama" else DEFAULT_MODEL
+        self.model = model or os.environ.get("LLM_MODEL", default_model)
         self.timeout = timeout
         self.max_tokens = max_tokens or int(os.environ.get('LLM_MAX_TOKENS', '4096'))
         self.reasoning_effort = reasoning_effort or os.environ.get('LLM_REASONING_EFFORT', 'low')
@@ -43,8 +44,8 @@ class LLMClient:
             raise ValueError('max_tokens must be at least 256')
         if self.reasoning_effort not in ('none','minimal','low','medium','high'):
             raise ValueError('Unsupported reasoning effort')
-        if self.transport not in ("openrouter", "hermes"):
-            raise ValueError("transport must be openrouter or hermes")
+        if self.transport not in ("openrouter", "groq", "ollama", "hermes"):
+            raise ValueError("transport must be openrouter, groq, ollama or hermes")
         if not 0 <= temperature <= 2:
             raise ValueError("temperature must be between 0 and 2")
 
@@ -83,6 +84,65 @@ class LLMClient:
                       "finish_reason": data['choices'][0].get('finish_reason'),
                       "generation_id": data.get("id"), "provider_route": data.get("provider"),
                       "reasoning_tokens": (usage.get('completion_tokens_details') or {}).get('reasoning_tokens')}
+        elif self.transport == "groq":
+            key = os.environ.get("GROQ_API_KEY")
+            if not key:
+                raise RuntimeError("Missing GROQ_API_KEY. Configure backend/.env.")
+            payload = {"model": self.model, "messages": [{"role": "user", "content": prompt}],
+                       "temperature": self.temperature, "max_completion_tokens": self.max_tokens}
+            if self.model in ("openai/gpt-oss-120b", "openai/gpt-oss-20b"):
+                if self.reasoning_effort not in ("low", "medium", "high"):
+                    raise ValueError("Groq GPT-OSS reasoning effort must be low, medium or high")
+                payload.update(reasoning_effort=self.reasoning_effort, include_reasoning=False)
+            try:
+                response = requests.post("https://api.groq.com/openai/v1/chat/completions",
+                                         headers={"Authorization": "Bearer " + key},
+                                         json=payload, timeout=self.timeout)
+            except requests.RequestException as exc:
+                raise RuntimeError("Groq connection failed: " + type(exc).__name__) from exc
+            if response.status_code != 200:
+                reasons = {401: "Invalid API key", 404: "Model unavailable", 429: "Rate limit reached"}
+                retry = response.headers.get('retry-after')
+                suffix = f" Retry after {retry} seconds." if isinstance(retry, str) and retry else ""
+                raise RuntimeError(f"Groq HTTP {response.status_code}: {reasons.get(response.status_code, 'Request failed')}. Model: {self.model}." + suffix)
+            data = response.json()
+            if data.get('error') or not data.get('choices'):
+                raise RuntimeError("Groq returned no completion")
+            text = data['choices'][0]['message'].get('content') or ''
+            if not isinstance(text, str):
+                raise RuntimeError("Groq returned non-text content")
+            usage = data.get('usage') or {}
+            result = {'text': text, 'model': data.get('model', self.model),
+                      'input_tokens': usage.get('prompt_tokens'), 'output_tokens': usage.get('completion_tokens'),
+                      'cost_usd': None, 'temperature': self.temperature, 'usage_source': 'provider',
+                      'provider_calls': 1, 'finish_reason': data['choices'][0].get('finish_reason'),
+                      'generation_id': data.get('id')}
+        elif self.transport == "ollama":
+            try:
+                response = requests.post(
+                    "http://127.0.0.1:11434/api/chat",
+                    json={"model": self.model,
+                          "messages": [{"role": "user", "content": prompt}],
+                          "stream": False, "format": "json", "think": False,
+                          "options": {"temperature": self.temperature,
+                                      "num_predict": self.max_tokens, "num_ctx": 16384}},
+                    timeout=self.timeout)
+            except requests.RequestException as exc:
+                raise RuntimeError("Local Ollama request failed. Check that Ollama is running. "
+                                   + type(exc).__name__) from exc
+            if response.status_code != 200:
+                hint = f" Run ollama pull {self.model} first." if response.status_code == 404 else " Check Ollama memory usage and server logs."
+                raise RuntimeError(f"Ollama HTTP {response.status_code}. Model: {self.model}." + hint)
+            data = response.json()
+            text = (data.get("message") or {}).get("content")
+            if not isinstance(text, str):
+                raise RuntimeError("Ollama returned no text completion")
+            result = {"text": text, "model": data.get("model", self.model),
+                      "input_tokens": data.get("prompt_eval_count"),
+                      "output_tokens": data.get("eval_count"), "cost_usd": 0.0,
+                      "temperature": self.temperature, "usage_source": "local_ollama",
+                      "provider_calls": 1, "finish_reason": data.get("done_reason"),
+                      "requested_num_ctx": 16384, "thinking_enabled": False}
         else:
             native = Path(os.environ.get("LOCALAPPDATA", "")) / "hermes/bin/hermes.exe"
             executable = os.environ.get("HERMES_EXECUTABLE") or shutil.which("hermes") or (str(native) if native.is_file() else None)

@@ -148,3 +148,21 @@ prompt-injection handling, Treasury approval boundaries, and Financial Analyst
 numeric grounding. The planted-error benchmark is synthetic detector evidence,
 not a live-model hallucination rate. Treat real model runs separately and review
 their saved `runs.jsonl` traces.
+
+## Local inference with Ollama
+
+Ollama runs the language model on this computer. Install and start Ollama, then
+pull a local model with `ollama pull qwen3:1.7b` if it is not already installed.
+Set the following in `backend/.env` and restart the Python backend:
+
+```dotenv
+LLM_TRANSPORT=ollama
+LLM_MODEL=qwen3:1.7b
+```
+
+The client uses `http://127.0.0.1:11434/api/chat`, JSON output, a 16K context,
+and disabled thinking. No inference API key is required. The installed small
+model is a starting point for local testing; evaluate correctness before using
+its outputs as research results. Compliance retrieval still needs its existing
+regulatory corpus, embedding model and Qdrant setup.
+For local batch evaluation, pass `--transport ollama --model qwen3:1.7b`.
